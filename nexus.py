@@ -582,7 +582,8 @@ elif "Stock Performance" in page:
             fig2.add_trace(go.Violin(
                 x=[co]*len(sub), y=sub.Daily_Return, name=co,
                 box_visible=True, meanline_visible=True,
-                fillcolor=COLORS[co]+'30', line_color=COLORS[co], opacity=0.85,
+                fillcolor=hex_to_rgba(COLORS[co], 0.19),
+                line_color=COLORS[co], opacity=0.85,
                 hovertemplate=f'<b>{co}</b><br>%{{y:.3f}}%<extra></extra>'
             ))
         sf(fig2, 340).update_layout(
@@ -651,7 +652,8 @@ elif "Revenue" in page:
                 fig2.add_trace(go.Scatter(
                     x=sub2.Year, y=sub2.Revenue_B, name=co,
                     mode='lines+markers', stackgroup='one',
-                    fillcolor=COLORS[co]+'55', line=dict(color=COLORS[co], width=1.5),
+                    fillcolor=hex_to_rgba(COLORS[co], 0.33),
+                    line=dict(color=COLORS[co], width=1.5),
                     hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'
                 ))
             sf(fig2, 340).update_layout(
@@ -735,7 +737,6 @@ elif "Competitive" in page:
     for co in sel_companies:
         if co not in norm.index: continue
         vals = list(norm.loc[co].values) + [norm.loc[co].values[0]]
-        # FIX: use hex_to_rgba() instead of hex+'25' string concatenation
         fig.add_trace(go.Scatterpolar(
             r=vals, theta=labels+[labels[0]], name=co, fill='toself',
             fillcolor=hex_to_rgba(COLORS[co], 0.15),
@@ -886,7 +887,7 @@ elif "Deep Analytics" in page:
         with c2:
             fig2 = go.Figure()
             fig2.add_trace(go.Histogram(x=rets_qq, nbinsx=80, name='Returns',
-                marker=dict(color=COLORS[co_qq]+'80', line=dict(color=COLORS[co_qq],width=0.5))))
+                marker=dict(color=hex_to_rgba(COLORS[co_qq], 0.5), line=dict(color=COLORS[co_qq],width=0.5))))
             x_n = np.linspace(rets_qq.min(), rets_qq.max(), 200)
             fig2.add_trace(go.Scatter(x=x_n, y=scipy_stats.norm.pdf(x_n,mu,sig)*len(rets_qq)*(rets_qq.max()-rets_qq.min())/80,
                 mode='lines', line=dict(color='#ff6d2d',width=2,dash='dot'), name='Normal Fit'))
