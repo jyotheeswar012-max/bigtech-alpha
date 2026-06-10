@@ -198,6 +198,12 @@ COLORS = {
 }
 ALL_COMPANIES = list(COLORS.keys())
 
+# ── Helper: convert hex color to rgba string with given opacity ──
+def hex_to_rgba(hex_color, alpha=0.15):
+    hex_color = hex_color.lstrip('#')
+    r, g, b = int(hex_color[0:2],16), int(hex_color[2:4],16), int(hex_color[4:6],16)
+    return f'rgba({r},{g},{b},{alpha})'
+
 def sf(fig, h=360, legend=True):
     kw = dict(**PL, height=h)
     if not legend: kw['showlegend'] = False
@@ -352,7 +358,6 @@ if "Command Center" in page:
     c1, c2 = st.columns(2)
 
     with c1:
-        # Quarterly revenue animated lines
         fig = go.Figure()
         for co in sel_companies:
             sub = q_f[q_f.Company==co].sort_values('Quarter')
@@ -368,7 +373,6 @@ if "Command Center" in page:
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
     with c2:
-        # Market cap waterfall per year
         mc_data = ann_f.pivot(index='Year', columns='Company', values='MarketCap_B').fillna(0)
         fig = go.Figure()
         for co in [c for c in sel_companies if c in mc_data.columns]:
@@ -389,7 +393,6 @@ if "Command Center" in page:
     c1, c2 = st.columns([3,2])
 
     with c1:
-        # Normalised stock (base 100)
         fig = go.Figure()
         for co in sel_companies:
             sub = p_f[p_f.Company==co].sort_values('Date')
@@ -407,7 +410,6 @@ if "Command Center" in page:
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
     with c2:
-        # Profit margin 2024
         ann_2024 = ann_df[ann_df.Year==2024].copy()
         ann_2024['Margin'] = (ann_2024.NetIncome_B / ann_2024.Revenue_B * 100).round(1)
         ann_2024 = ann_2024[ann_2024.Company.isin(sel_companies)].sort_values('Margin')
@@ -451,7 +453,6 @@ if "Command Center" in page:
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
     with c2:
-        # Revenue per employee
         ann_2024_e = ann_df[(ann_df.Year==2024)&(ann_df.Company.isin(sel_companies))].copy()
         ann_2024_e['RevPerEmp'] = (ann_2024_e.Revenue_B * 1e9 / (ann_2024_e.Employees_K * 1e3) / 1e6).round(2)
         ann_2024_e = ann_2024_e.sort_values('RevPerEmp', ascending=True)
@@ -508,14 +509,12 @@ elif "Stock Performance" in page:
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
-        # Volume bar
         fig2 = go.Figure(go.Bar(x=sub.Date, y=sub.Volume_M,
             marker_color=COLORS[co1], opacity=0.4, name='Volume'))
         sf(fig2, 120, legend=False).update_layout(yaxis_title="Volume (M)", margin=dict(t=10))
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar':False})
 
     with tab2:
-        # Rolling volatility (30-day std of daily returns)
         fig = go.Figure()
         for co in sel_companies:
             sub = p_f[p_f.Company==co].sort_values('Date')
@@ -528,7 +527,6 @@ elif "Stock Performance" in page:
             yaxis_title="Volatility (%)")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
-        # Risk-Return quadrant
         stats = p_f.groupby('Company').agg(
             Avg_Return=('Daily_Return','mean'),
             Volatility=('Daily_Return','std'),
@@ -558,7 +556,6 @@ elif "Stock Performance" in page:
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar':False})
 
     with tab3:
-        # Annual return heatmap
         p_f2 = p_f.copy()
         p_f2['Year'] = p_f2.Date.dt.year
         annual_ret = p_f2.groupby(['Company','Year']).apply(
@@ -579,7 +576,6 @@ elif "Stock Performance" in page:
             title=dict(text="Annual Stock Return % — Red=Loss · Green=Gain", font=dict(size=12,color='#6b80a0')))
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
-        # Distribution violin
         fig2 = go.Figure()
         for co in sel_companies:
             sub = p_f[p_f.Company==co]
@@ -625,7 +621,6 @@ elif "Revenue" in page:
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
     with tab2:
-        # Revenue CAGR 2020-2024
         cagr_rows = []
         for co in sel_companies:
             sub = ann_df[(ann_df.Company==co)&(ann_df.Year.isin([2020,2024]))].sort_values('Year')
@@ -650,7 +645,6 @@ elif "Revenue" in page:
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
         with c2:
-            # Stacked area — all companies revenue over time
             fig2 = go.Figure()
             for co in sel_companies:
                 sub2 = ann_f[ann_f.Company==co].sort_values('Year')
@@ -666,7 +660,6 @@ elif "Revenue" in page:
             st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar':False})
 
     with tab3:
-        # Net income comparison
         ni_data = ann_f.pivot(index='Year', columns='Company', values='NetIncome_B').fillna(0)
         fig = go.Figure()
         for co in [c for c in sel_companies if c in ni_data.columns]:
@@ -682,7 +675,6 @@ elif "Revenue" in page:
             yaxis_title="Net Income ($B)")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
-        # Revenue vs Net Income scatter per year
         c1, c2 = st.columns(2)
         with c1:
             yr = st.selectbox("Year", [2020,2021,2022,2023,2024], index=4, key='yr_ni')
@@ -704,7 +696,6 @@ elif "Revenue" in page:
             st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar':False})
 
         with c2:
-            # Net income YoY change waterfall
             ni_change = ann_df[ann_df.Company.isin(sel_companies)].sort_values(['Company','Year'])
             ni_change['NI_Change'] = ni_change.groupby('Company')['NetIncome_B'].diff()
             ni_2024 = ni_change[ni_change.Year==2024].sort_values('NI_Change')
@@ -736,7 +727,6 @@ elif "Competitive" in page:
     metrics = ['Revenue_B','NetIncome_B','MarketCap_B','Margin','RevPerEmp']
     labels  = ['Revenue ($B)','Net Income ($B)','Market Cap ($B)','Net Margin %','Rev/Employee $M']
 
-    # Normalize 0-10
     norm = ann_2024[ann_2024.Company.isin(sel_companies)].set_index('Company')[metrics].copy()
     for col in metrics:
         norm[col] = (norm[col] - norm[col].min()) / (norm[col].max() - norm[col].min() + 1e-9) * 10
@@ -745,9 +735,11 @@ elif "Competitive" in page:
     for co in sel_companies:
         if co not in norm.index: continue
         vals = list(norm.loc[co].values) + [norm.loc[co].values[0]]
+        # FIX: use hex_to_rgba() instead of hex+'25' string concatenation
         fig.add_trace(go.Scatterpolar(
             r=vals, theta=labels+[labels[0]], name=co, fill='toself',
-            fillcolor=COLORS[co]+'25', line=dict(color=COLORS[co], width=2),
+            fillcolor=hex_to_rgba(COLORS[co], 0.15),
+            line=dict(color=COLORS[co], width=2),
             hovertemplate=f'<b>{co}</b><br>%{{theta}}: %{{r:.1f}}/10<extra></extra>'
         ))
     fig.update_layout(**PL, height=480, polar=dict(
@@ -795,7 +787,6 @@ elif "Competitive" in page:
             xaxis_title="P/S Ratio")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
-    # Employee efficiency matrix
     sec("Employee Count vs Revenue — Efficiency Matrix", "HEADCOUNT")
     ann_all = ann_df[(ann_df.Year.between(*year_range))&(ann_df.Company.isin(sel_companies))]
     ann_all['RevPerEmp'] = (ann_all.Revenue_B*1e9 / (ann_all.Employees_K*1e3) / 1e6).round(2)
@@ -832,7 +823,6 @@ elif "Deep Analytics" in page:
             title=dict(text="Daily Return Correlation (2020–2024) — 1=Perfect · -1=Inverse", font=dict(size=12,color='#6b80a0')))
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
 
-        # Scatter pair
         c1, c2 = st.columns(2)
         with c1:
             co_a = st.selectbox("Company A", sel_companies, index=0, key='ca')
@@ -874,7 +864,6 @@ elif "Deep Analytics" in page:
             })
         st.dataframe(pd.DataFrame(stats_rows).set_index('Company'), use_container_width=True)
 
-        # QQ plots
         co_qq = st.selectbox("Q-Q Plot for:", sel_companies, key='qq')
         rets_qq = price_df[price_df.Company==co_qq]['Daily_Return'].dropna()
         theo = scipy_stats.norm.ppf(np.linspace(0.01,0.99, len(rets_qq)))
@@ -942,27 +931,23 @@ elif "AI Insight" in page:
     </div>
     """, unsafe_allow_html=True)
 
-    # Compute real insights
     ann_2024 = ann_df[ann_df.Year==2024].set_index('Company')
     ann_2020 = ann_df[ann_df.Year==2020].set_index('Company')
 
     insights = []
 
-    # NVIDIA dominance
     nvda_mcap_growth = (ann_2024.loc['NVIDIA','MarketCap_B'] / ann_2020.loc['NVIDIA','MarketCap_B'] - 1)*100
     insights.append(('🚀 NVIDIA AI Supercycle',
         f"NVIDIA's market cap exploded from ${ann_2020.loc['NVIDIA','MarketCap_B']:.0f}B (2020) to "
         f"${ann_2024.loc['NVIDIA','MarketCap_B']:,.0f}B (2024) — a <b style='color:#00ff9d;'>{nvda_mcap_growth:.0f}% gain</b> "
         f"in 4 years. Net income surged to <b style='color:#00ff9d;'>${ann_2024.loc['NVIDIA','NetIncome_B']:.1f}B</b> on AI chip demand."))
 
-    # Meta comeback
     meta_ni_change = ann_2024.loc['Meta','NetIncome_B'] - ann_df[ann_df.Year==2022].set_index('Company').loc['Meta','NetIncome_B']
     insights.append(('💎 Meta\'s Year of Efficiency',
         f"After a brutal 2022 (net income crashed to $23.2B), Meta rebounded to "
         f"<b style='color:#00e5ff;'>${ann_2024.loc['Meta','NetIncome_B']:.1f}B</b> net income in 2024 — "
         f"a <b style='color:#00e5ff;'>+170% recovery</b> driven by headcount cuts and AI ad targeting."))
 
-    # Apple consistency
     apple_rev_cagr = ((ann_2024.loc['Apple','Revenue_B']/ann_2020.loc['Apple','Revenue_B'])**0.25-1)*100
     insights.append(('🍎 Apple\'s Revenue Machine',
         f"Apple generated <b style='color:#e8e8e8;'>${ann_2024.loc['Apple','Revenue_B']:.1f}B</b> revenue in 2024 "
@@ -970,14 +955,12 @@ elif "AI Insight" in page:
         f"<b style='color:#e8e8e8;'>{ann_2024.loc['Apple','NetIncome_B']/ann_2024.loc['Apple','Revenue_B']*100:.1f}%</b> — "
         f"consistently the most profitable hardware company on earth."))
 
-    # Amazon profitability flip
     amzn_2020_ni = ann_2020.loc['Amazon','NetIncome_B']
     insights.append(('📦 Amazon\'s Profit Inflection',
         f"Amazon went from <b style='color:#ff375f;'>${amzn_2020_ni:.1f}B</b> loss (2022) to "
         f"<b style='color:#ff9900;'>${ann_2024.loc['Amazon','NetIncome_B']:.1f}B</b> net income in 2024 "
         f"as AWS cloud margins and advertising revenue offset retail losses."))
 
-    # Tesla volatility
     tsla_data = price_df[price_df.Company=='Tesla']['Daily_Return']
     insights.append(('⚡ Tesla: Highest Volatility Award',
         f"Tesla has daily return std dev of <b style='color:#cc0000;'>{tsla_data.std():.2f}%</b> — "
@@ -995,7 +978,6 @@ elif "AI Insight" in page:
         </div>
         """, unsafe_allow_html=True)
 
-    # Summary table
     sec("Full Company Scorecard 2024", "REAL METRICS")
     ann_2024_full = ann_df[ann_df.Year==2024][ann_df.Company.isin(sel_companies)].copy()
     ann_2024_full['Net_Margin_%'] = (ann_2024_full.NetIncome_B/ann_2024_full.Revenue_B*100).round(1)
