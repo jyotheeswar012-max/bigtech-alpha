@@ -237,12 +237,12 @@ with st.sidebar:
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;
                   color:#2d3f5a;letter-spacing:0.12em;margin-top:0.2rem;">
-        BIG TECH INTELLIGENCE v3.0
+        BIG TECH INTELLIGENCE v3.1
       </div>
       <div style="margin-top:0.8rem;">
         <span class="live"></span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:#00ff9d;">
-          REAL DATA · 8 COMPANIES
+          REAL DATA · 8 COMPANIES · LIVE
         </span>
       </div>
     </div>
@@ -256,6 +256,7 @@ with st.sidebar:
         "🏆  Competitive Analysis",
         "🔬  Deep Analytics",
         "🤖  AI Insight Engine",
+        "📡  Live Dashboard",
     ], label_visibility="hidden")
 
     st.markdown("<hr style='border-color:rgba(0,229,255,0.07);margin:0.8rem 0;'>", unsafe_allow_html=True)
@@ -303,6 +304,7 @@ if "Command Center" in page:
           <span class="chip orange">📈 5-Year Stock History</span>
           <span class="chip green">🏆 Competitive Intel</span>
           <span class="chip">💡 AI Insights</span>
+          <span class="chip green">📡 Live Prices</span>
         </div>
       </div>
     </div>
@@ -991,12 +993,254 @@ elif "AI Insight" in page:
     st.dataframe(display.set_index('Company'), use_container_width=True)
 
 
+# ── PAGE: LIVE DASHBOARD ──────────────────────────────────────────────────────
+elif "Live Dashboard" in page:
+    # ── Try importing live dependencies ──
+    try:
+        from streamlit_autorefresh import st_autorefresh
+        _autorefresh_ok = True
+    except ImportError:
+        _autorefresh_ok = False
+
+    try:
+        from live_data import COMPANIES as LIVE_COMPANIES, get_intraday_data, get_live_price, get_multi_live_prices, COMPANY_COLORS
+        _live_ok = True
+    except ImportError:
+        _live_ok = False
+
+    # ── Hero header ──
+    st.markdown("""
+    <div class="hero" style="padding:2rem 2.4rem;margin-bottom:1.5rem;">
+      <div class="hero-grid"></div><div class="hero-glow1"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-eyebrow">📡 yfinance · auto-refresh · intraday data</div>
+        <p class="hero-title" style="font-size:2.6rem;">Live Dashboard</p>
+        <p class="hero-sub">Real-time intraday prices for all 8 Big Tech companies — auto-refreshes every 60 seconds.</p>
+        <div class="hero-chips">
+          <span class="chip green">🟢 Live Prices</span>
+          <span class="chip">⏱ 60s Auto-Refresh</span>
+          <span class="chip orange">📈 5-min Intraday</span>
+          <span class="chip">🆓 No API Key</span>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not _live_ok:
+        st.error("⚠️ `live_data.py` not found. Make sure it exists in the same directory as `nexus.py`.")
+        st.stop()
+
+    # ── Auto-refresh every 60 seconds ──
+    if _autorefresh_ok:
+        refresh_count = st_autorefresh(interval=60000, limit=None, key="live_dashboard_refresh")
+    else:
+        st.warning("⚠️ `streamlit-autorefresh` not installed — manual refresh only. Run: `pip install streamlit-autorefresh`")
+        if st.button("🔄 Refresh Now"):
+            st.rerun()
+
+    # ── Last updated timestamp ──
+    st.markdown(
+        f'<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;color:#2d3f5a;margin-bottom:1.2rem;">'
+        f'<span class="live"></span> Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} · '
+        f'Data via yfinance (15-min delayed during market hours)</div>',
+        unsafe_allow_html=True
+    )
+
+    # ── TTL-cached live price fetcher ──
+    @st.cache_data(ttl=30)
+    def fetch_live_price(ticker):
+        return get_live_price(ticker)
+
+    @st.cache_data(ttl=30)
+    def fetch_intraday(ticker, period="1d", interval="5m"):
+        return get_intraday_data(ticker, period=period, interval=interval)
+
+    # ── Section 1: Live price ticker strip (all 8 companies) ──
+    sec("Live Price Snapshot", "ALL 8 COMPANIES · REFRESHED EVERY 60s")
+
+    ticker_map = {
+        "Apple": "AAPL", "Microsoft": "MSFT", "Google": "GOOGL",
+        "Amazon": "AMZN", "Meta": "META", "NVIDIA": "NVDA",
+        "Tesla": "TSLA", "Netflix": "NFLX"
+    }
+
+    cols = st.columns(4)
+    for idx, (name, ticker) in enumerate(ticker_map.items()):
+        price, change, vol = fetch_live_price(ticker)
+        col = cols[idx % 4]
+        if price is not None:
+            direction = "up" if change >= 0 else "down"
+            arrow = "↑" if change >= 0 else "↓"
+            color = "#00ff9d" if change >= 0 else "#ff375f"
+            vol_str = f"{vol/1e6:.1f}M" if vol and vol >= 1e6 else (f"{vol/1e3:.0f}K" if vol else "—")
+            col.markdown(f"""
+            <div class="kpi" style="margin-bottom:0.8rem;">
+              <div class="kpi-stripe {'green' if change >= 0 else ''}"
+                   style="background:linear-gradient(180deg,{color},transparent);"></div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div class="kpi-label">{name}</div>
+                  <div class="kpi-val" style="font-size:1.55rem;color:{color} !important;">${price:,.2f}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div class="kpi-badge {direction}">{arrow} {abs(change):.2f}%</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:#2d3f5a;margin-top:0.8rem;">{ticker}</div>
+                </div>
+              </div>
+              <div class="kpi-sub">Vol: {vol_str}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            col.markdown(f"""
+            <div class="kpi" style="margin-bottom:0.8rem;">
+              <div class="kpi-stripe"></div>
+              <div class="kpi-label">{name} ({ticker})</div>
+              <div class="kpi-val" style="font-size:1.2rem;color:#2d3f5a !important;">—</div>
+              <div class="kpi-sub">Market closed or data unavailable</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ── Section 2: Intraday chart for selected company ──
+    sec("Intraday Price Chart", "5-MIN BARS · TODAY")
+
+    live_col1, live_col2 = st.columns([3, 1])
+
+    with live_col2:
+        selected_name = st.selectbox(
+            "Select Company",
+            list(ticker_map.keys()),
+            key="live_company_select"
+        )
+        interval_choice = st.selectbox(
+            "Interval",
+            ["1m", "5m", "15m", "30m", "1h"],
+            index=1,
+            key="live_interval"
+        )
+        period_choice = st.selectbox(
+            "Period",
+            ["1d", "5d", "1mo"],
+            index=0,
+            key="live_period"
+        )
+
+    selected_ticker = ticker_map[selected_name]
+    df_intraday = fetch_intraday(selected_ticker, period=period_choice, interval=interval_choice)
+
+    with live_col1:
+        if df_intraday is not None and not df_intraday.empty:
+            ticker_color = COMPANY_COLORS.get(selected_ticker, "#00e5ff")
+
+            fig = go.Figure()
+
+            # Candlestick if enough data, else line
+            if len(df_intraday) >= 10:
+                fig.add_trace(go.Candlestick(
+                    x=df_intraday.index,
+                    open=df_intraday['Open'], high=df_intraday['High'],
+                    low=df_intraday['Low'],   close=df_intraday['Close'],
+                    name="OHLC",
+                    increasing=dict(line=dict(color='#00ff9d'), fillcolor='rgba(0,255,157,0.3)'),
+                    decreasing=dict(line=dict(color='#ff375f'), fillcolor='rgba(255,55,95,0.3)'),
+                ))
+            else:
+                fig.add_trace(go.Scatter(
+                    x=df_intraday.index, y=df_intraday['Close'],
+                    mode='lines', name='Close',
+                    line=dict(color=ticker_color, width=2.5)
+                ))
+
+            sf(fig, 420).update_layout(
+                title=dict(
+                    text=f"{selected_name} ({selected_ticker}) — {interval_choice} bars · {period_choice}",
+                    font=dict(size=12, color='#6b80a0')
+                ),
+                xaxis_title="Time",
+                yaxis_title="Price (USD)",
+                xaxis_rangeslider_visible=False,
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+            # Volume bar chart
+            fig_vol = go.Figure(go.Bar(
+                x=df_intraday.index, y=df_intraday['Volume'],
+                marker_color=ticker_color, opacity=0.4, name='Volume'
+            ))
+            sf(fig_vol, 110, legend=False).update_layout(
+                yaxis_title="Volume", margin=dict(t=4)
+            )
+            st.plotly_chart(fig_vol, use_container_width=True, config={'displayModeBar': False})
+
+            # Live metric strip
+            latest_price  = df_intraday['Close'].iloc[-1]
+            open_price    = df_intraday['Open'].iloc[0]
+            day_high      = df_intraday['High'].max()
+            day_low       = df_intraday['Low'].min()
+            day_change    = (latest_price - open_price) / open_price * 100
+            total_vol     = df_intraday['Volume'].sum()
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Last Price",  f"${latest_price:.2f}",   delta=f"{day_change:+.2f}%")
+            m2.metric("Day High",    f"${day_high:.2f}")
+            m3.metric("Day Low",     f"${day_low:.2f}")
+            m4.metric("Total Volume", f"{total_vol/1e6:.1f}M" if total_vol >= 1e6 else f"{total_vol/1e3:.0f}K")
+
+        else:
+            st.markdown("""
+            <div style="background:var(--bg-card);border:1px solid rgba(255,109,45,0.3);border-radius:14px;
+                        padding:2rem;text-align:center;">
+              <div style="font-size:2rem;margin-bottom:0.5rem;">🌙</div>
+              <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:#ff6d2d;">
+                Market Closed / No Intraday Data
+              </div>
+              <div style="color:#6b80a0;font-size:0.85rem;margin-top:0.5rem;">
+                US markets are open Mon–Fri 9:30am–4:00pm ET.<br>
+                Try switching Period to "5d" to see recent daily bars.
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ── Section 3: Multi-company live price table ──
+    sec("Live Price Comparison Table", "ALL COMPANIES · SNAPSHOT")
+
+    @st.cache_data(ttl=60)
+    def fetch_all_prices():
+        rows = []
+        for name, ticker in ticker_map.items():
+            price, change, vol = get_live_price(ticker)
+            rows.append({
+                "Company": name,
+                "Ticker": ticker,
+                "Price (USD)": f"${price:,.2f}" if price else "—",
+                "Change %": f"{change:+.2f}%" if change is not None else "—",
+                "Volume": f"{vol/1e6:.1f}M" if vol and vol >= 1e6 else (f"{vol/1e3:.0f}K" if vol else "—"),
+                "Direction": "🟢" if (change or 0) >= 0 else "🔴",
+            })
+        return pd.DataFrame(rows)
+
+    live_table = fetch_all_prices()
+    st.dataframe(
+        live_table.set_index("Company"),
+        use_container_width=True,
+        height=320
+    )
+
+    # ── Footer note ──
+    st.markdown("""
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:#2d3f5a;
+                margin-top:1rem;border-top:1px solid rgba(0,229,255,0.06);padding-top:0.8rem;">
+      📡 Live data powered by yfinance (free, no API key) · Prices may be delayed up to 15 minutes during market hours
+      · For historical fundamental analysis, use the other pages.
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # ── FOOTER ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style="border-top:1px solid rgba(0,229,255,0.06);margin-top:3rem;padding-top:1.2rem;
             text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:#2d3f5a;">
   MARKET NEXUS &nbsp;·&nbsp; Built by Jyotheeswar Gudipalli &nbsp;·&nbsp;
   Manipal University Jaipur · B.Tech Data Science 2027 &nbsp;·&nbsp;
-  Data: Public Earnings Reports · SEC Filings · Historical Stock Records
+  Data: Public Earnings Reports · SEC Filings · Historical Stock Records · yfinance Live Feed
 </div>
 """, unsafe_allow_html=True)
