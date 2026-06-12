@@ -1,4 +1,4 @@
-wc -l nexus.py"""
+"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  MARKET NEXUS — Big Tech Intelligence Platform                   ║
 ║  Real data: Apple · Microsoft · Google · Amazon · Meta          ║
