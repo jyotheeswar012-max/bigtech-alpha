@@ -123,7 +123,7 @@ try:
 except ImportError:
     _autorefresh_ok = False
 
-# ── CSV LOADING ───────────────────────────────────────────────────────────────
+# ── CSV LOADING (no TTL — CSVs are static baseline, never stale) ──────────────
 @st.cache_data
 def load_csv():
     base = Path(__file__).parent
@@ -132,74 +132,97 @@ def load_csv():
     p = pd.read_csv(base/"stock_prices.csv", parse_dates=["Date"])
     return q, a, p
 
-@st.cache_data(ttl=600)
+# ── LIVE DATA LOADERS WITH APPROPRIATE TTLs ───────────────────────────────────
+# Annual/Quarterly earnings only change when companies report (quarterly).
+# Refresh every 12 hours — more than enough to catch same-day earnings.
+@st.cache_data(ttl=43200)
 def load_live_annual():
     if not _live_ok: return pd.DataFrame()
     try: return get_all_annual()
     except: return pd.DataFrame()
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=43200)
 def load_live_quarterly():
     if not _live_ok: return pd.DataFrame()
     try: return get_all_quarterly()
     except: return pd.DataFrame()
 
-@st.cache_data(ttl=120)
+# Price history: fetch fresh daily (86400s). yfinance `period="5y"` always
+# includes today's session once the market opens so this gives up-to-date data.
+@st.cache_data(ttl=86400)
 def load_live_prices():
     if not _live_ok: return pd.DataFrame()
     try: return get_all_price_history(period="5y")
     except: return pd.DataFrame()
 
+# Fundamentals (market cap, PE, etc.) — refresh every 60s during market hours.
 @st.cache_data(ttl=60)
 def load_live_fundamentals():
     if not _live_ok: return pd.DataFrame()
     try: return get_all_fundamentals()
     except: return pd.DataFrame()
 
-q_csv, ann_csv, price_csv = load_csv()
-live_ann = load_live_annual()
-live_q   = load_live_quarterly()
-live_p   = load_live_prices()
+# ── MASTER DATA PIPELINE — single cached function, refreshes every hour ───────
+# Wrapping the merge logic here means ann_df / q_df / price_df are recomputed
+# from fresh live data every hour automatically (not just on restart).
+@st.cache_data(ttl=3600)
+def build_merged_data():
+    q_csv, ann_csv, price_csv = load_csv()
+    live_ann = load_live_annual()
+    live_q   = load_live_quarterly()
+    live_p   = load_live_prices()
 
-# ── SMART MERGE: CSV first, live overlays matching keys ───────────────────────
-if _live_ok and not live_ann.empty:
-    ann_df = merge_with_csv(live_ann, ann_csv, ['Company','Year'])
-else:
-    ann_df = ann_csv.copy()
+    # Merge annual
+    if _live_ok and not live_ann.empty:
+        ann_df = merge_with_csv(live_ann, ann_csv, ['Company','Year'])
+    else:
+        ann_df = ann_csv.copy()
 
-if _live_ok and not live_q.empty:
-    live_q['Quarter'] = pd.to_datetime(live_q['Quarter'])
-    q_csv2 = q_csv.copy(); q_csv2['Quarter'] = pd.to_datetime(q_csv2['Quarter'])
-    q_df = merge_with_csv(live_q, q_csv2, ['Company','Quarter'])
-else:
-    q_df = q_csv.copy()
+    # Merge quarterly
+    if _live_ok and not live_q.empty:
+        live_q2 = live_q.copy()
+        live_q2['Quarter'] = pd.to_datetime(live_q2['Quarter'])
+        q_csv2 = q_csv.copy()
+        q_csv2['Quarter'] = pd.to_datetime(q_csv2['Quarter'])
+        q_df = merge_with_csv(live_q2, q_csv2, ['Company','Quarter'])
+    else:
+        q_df = q_csv.copy()
 
-if _live_ok and not live_p.empty:
-    live_p['Date'] = pd.to_datetime(live_p['Date'])
-    p2 = price_csv.copy(); p2['Date'] = pd.to_datetime(p2['Date'])
-    price_df = merge_with_csv(live_p, p2, ['Company','Date'])
-else:
-    price_df = price_csv.copy()
+    # Merge price history — live_p includes today's bar from yfinance
+    if _live_ok and not live_p.empty:
+        live_p2 = live_p.copy()
+        live_p2['Date'] = pd.to_datetime(live_p2['Date'])
+        p2 = price_csv.copy()
+        p2['Date'] = pd.to_datetime(p2['Date'])
+        price_df = merge_with_csv(live_p2, p2, ['Company','Date'])
+    else:
+        price_df = price_csv.copy()
 
-if 'Date' not in price_df.columns and price_df.index.name == 'Date':
-    price_df = price_df.reset_index()
+    if 'Date' not in price_df.columns and price_df.index.name == 'Date':
+        price_df = price_df.reset_index()
 
+    # Normalise date types
+    q_df['Quarter']    = pd.to_datetime(q_df['Quarter'])
+    price_df['Date']   = pd.to_datetime(price_df['Date']).dt.tz_localize(None)
+    ann_df['Year']     = ann_df['Year'].astype(int)
+
+    return ann_df, q_df, price_df
+
+# Build data — this auto-refreshes every hour via ttl=3600
+ann_df, q_df, price_df = build_merged_data()
 fund_df = load_live_fundamentals()
 
-# ── KEY FIX: find the year where the MOST companies have data ─────────────────
+# ── DYNAMIC YEAR BOUNDS — recomputed from live data every refresh ─────────────
 def best_common_year(df, all_cos=ALL_COMPANIES):
-    """
-    Returns the highest year that has data for at least half of all_cos.
-    Falls back to overall max year if needed.
-    """
     year_counts = df[df.Company.isin(all_cos)].groupby('Year')['Company'].nunique()
     if year_counts.empty:
         return int(df['Year'].max())
-    # highest year with >= half the companies present
     half = max(1, len(all_cos) // 2)
     valid = year_counts[year_counts >= half]
     return int(valid.index.max()) if not valid.empty else int(year_counts.index.max())
 
+# These are now always current — today's year will appear as soon as
+# yfinance returns data for it (typically after Q1 earnings season).
 COMMON_LATEST_YEAR = best_common_year(ann_df)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -209,7 +232,7 @@ with st.sidebar:
       <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
                   background:linear-gradient(110deg,#00e5ff,#ff6d2d);
                   -webkit-background-clip:text;-webkit-text-fill-color:transparent;">🚀 MARKET NEXUS</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:#2d3f5a;letter-spacing:0.12em;margin-top:0.2rem;">BIG TECH INTELLIGENCE v4.1</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:#2d3f5a;letter-spacing:0.12em;margin-top:0.2rem;">BIG TECH INTELLIGENCE v4.2</div>
       <div style="margin-top:0.8rem;">
         <span class="live"></span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:#00ff9d;">LIVE DATA · 8 COMPANIES · yfinance</span>
@@ -235,30 +258,32 @@ with st.sidebar:
 
     st.markdown("<hr style='border-color:rgba(0,229,255,0.07);margin:0.8rem 0;'>", unsafe_allow_html=True)
     st.markdown('<div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:#2d3f5a;margin-bottom:0.5rem;">YEAR RANGE</div>', unsafe_allow_html=True)
+    # slider_min/max are now dynamic — derived from the live-merged ann_df
     slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
-    slider_max = COMMON_LATEST_YEAR
+    slider_max = COMMON_LATEST_YEAR  # updates automatically each refresh
     year_range = st.slider("", slider_min, slider_max, (slider_min, slider_max), label_visibility="hidden")
 
     st.markdown("<hr style='border-color:rgba(0,229,255,0.07);margin:0.8rem 0;'>", unsafe_allow_html=True)
-    data_src = "yfinance LIVE" if (_live_ok and not live_ann.empty) else "CSV Fallback"
+    data_src = "yfinance LIVE" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     companies_in_latest = ann_df[ann_df.Year==COMMON_LATEST_YEAR]['Company'].nunique()
+    # Show exact latest date in price data so user knows how fresh the charts are
+    price_latest_date = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
     st.markdown(f"""
     <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:#2d3f5a;line-height:2.0;">
       UPDATED: {datetime.now().strftime("%H:%M:%S")}<br>
       SOURCE: {data_src}<br>
       LATEST YEAR: {COMMON_LATEST_YEAR} ({companies_in_latest}/8 cos)<br>
+      PRICE DATA TO: {price_latest_date}<br>
       RECORDS: {len(q_df)+len(ann_df)+len(price_df):,}
     </div>
     """, unsafe_allow_html=True)
 
-# ── FILTERED DATA ─────────────────────────────────────────────────────────────
+# ── FILTERED DATA — always computed from the freshly-merged dataframes ────────
 ann_f = ann_df[(ann_df.Company.isin(sel_companies)) & (ann_df.Year.between(*year_range))]
 q_f   = q_df[(q_df.Company.isin(sel_companies)) & (q_df.Quarter.dt.year.between(*year_range))]
 p_f   = price_df[(price_df.Company.isin(sel_companies)) & (price_df.Date.dt.year.between(*year_range))]
 
-# Helper: get latest-year slice that includes all selected companies
 def get_latest_slice(df, companies, fallback_year=None):
-    """Return rows for the most recent year where all (or most) selected companies have data."""
     sub = df[df.Company.isin(companies)]
     yr  = best_common_year(sub, companies) if fallback_year is None else fallback_year
     return sub[sub.Year == yr].copy(), yr
@@ -291,7 +316,6 @@ if "Command Center" in page:
     </div>
     """, unsafe_allow_html=True)
 
-    # KPIs — use live fund_df if available, else best common year from ann_df
     if not fund_df.empty:
         kpi_cos     = fund_df[fund_df.Company.isin(sel_companies)]
         total_rev   = kpi_cos.revenue_B.sum()
@@ -871,8 +895,10 @@ elif "Live Dashboard" in page:
 
     @st.cache_data(ttl=30)
     def fetch_live_price(ticker): return get_live_price(ticker)
-    @st.cache_data(ttl=30)
-    def fetch_intraday(ticker, period="1d", interval="5m"): return get_intraday_data(ticker, period=period, interval=interval)
+
+    @st.cache_data(ttl=300)
+    def fetch_intraday(ticker, period="1d", interval="5m"):
+        return get_intraday_data(ticker, period=period, interval=interval)
 
     ticker_map = {"Apple":"AAPL","Microsoft":"MSFT","Google":"GOOGL","Amazon":"AMZN",
                   "Meta":"META","NVIDIA":"NVDA","Tesla":"TSLA","Netflix":"NFLX"}
