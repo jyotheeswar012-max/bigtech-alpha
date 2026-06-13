@@ -4,38 +4,46 @@ Apple,2021,312.3,94.7,2255,154,Hardware
 Apple,2022,333.7,99.8,2913,164,Hardware
 Apple,2023,369.9,100.0,2067,165,Hardware
 Apple,2024,385.7,94.3,2994,160,Hardware
+Apple,2025,395.8,96.5,3120,161,Hardware
 Microsoft,2020,143.6,44.3,1200,163,Cloud/Software
 Microsoft,2021,159.2,61.3,1681,181,Cloud/Software
 Microsoft,2022,184.9,72.7,2523,221,Cloud/Software
 Microsoft,2023,219.2,72.4,1786,222,Cloud/Software
-Microsoft,2024,240.3,88.1,2795,228,Cloud/Software
+Microsoft,2024,245.1,88.1,2795,228,Cloud/Software
+Microsoft,2025,272.0,96.0,3100,236,Cloud/Software
 Google,2020,168.7,40.3,934,119,Digital Ads
 Google,2021,246.4,76.0,1185,140,Digital Ads
 Google,2022,288.4,59.9,1917,174,Digital Ads
 Google,2023,297.0,73.8,1145,190,Digital Ads
-Google,2024,328.2,94.0,1756,182,Digital Ads
+Google,2024,350.0,100.1,2100,182,Digital Ads
+Google,2025,380.0,113.0,2450,185,Digital Ads
 Amazon,2020,377.4,-2.7,936,798,E-Commerce/Cloud
 Amazon,2021,447.9,33.4,1634,1298,E-Commerce/Cloud
 Amazon,2022,483.5,-2.7,1694,1541,E-Commerce/Cloud
-Amazon,2023,514.2,30.4,861,1468,E-Commerce/Cloud
-Amazon,2024,575.0,59.2,1538,1525,E-Commerce/Cloud
+Amazon,2023,574.8,30.4,1530,1525,E-Commerce/Cloud
+Amazon,2024,638.0,59.2,2270,1551,E-Commerce/Cloud
+Amazon,2025,690.0,71.0,2420,1560,E-Commerce/Cloud
 Meta,2020,72.7,29.1,585,45,Social Media
 Meta,2021,110.0,39.4,778,58,Social Media
 Meta,2022,115.0,23.2,919,86,Social Media
-Meta,2023,117.6,39.1,319,87,Social Media
-Meta,2024,128.9,62.4,930,74,Social Media
+Meta,2023,134.9,39.1,1200,67,Social Media
+Meta,2024,164.5,62.4,1600,74,Social Media
+Meta,2025,210.0,78.0,1780,78,Social Media
 NVIDIA,2020,12.0,4.3,145,13,Semiconductors
 NVIDIA,2021,18.5,4.3,323,19,Semiconductors
 NVIDIA,2022,24.0,4.1,735,22,Semiconductors
-NVIDIA,2023,29.0,29.8,289,26,Semiconductors
-NVIDIA,2024,60.9,72.9,1222,29,Semiconductors
+NVIDIA,2023,60.9,29.8,1222,29,Semiconductors
+NVIDIA,2024,130.5,72.9,3200,36,Semiconductors
+NVIDIA,2025,195.0,110.0,3800,40,Semiconductors
 Tesla,2020,32.9,0.7,76,48,EV/Energy
 Tesla,2021,46.8,5.5,669,99,EV/Energy
 Tesla,2022,58.6,12.6,1061,127,EV/Energy
 Tesla,2023,78.8,15.0,389,128,EV/Energy
-Tesla,2024,95.3,7.1,790,140,EV/Energy
+Tesla,2024,97.7,7.1,790,140,EV/Energy
+Tesla,2025,100.2,8.5,830,142,EV/Energy
 Netflix,2020,25.5,2.8,148,9,Streaming
 Netflix,2021,29.4,5.1,231,12,Streaming
 Netflix,2022,30.6,4.5,271,13,Streaming
-Netflix,2023,32.2,5.4,129,13,Streaming
-Netflix,2024,37.2,8.7,211,14,Streaming
+Netflix,2023,33.7,5.4,214,13,Streaming
+Netflix,2024,39.0,8.7,390,14,Streaming
+Netflix,2025,43.8,10.5,450,15,Streaming
