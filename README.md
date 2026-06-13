@@ -3,10 +3,17 @@
 > **Live financial analytics across Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix**
 > Powered by yfinance live data, real earnings & competitive benchmarks.
 
-[![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-FF4B4B?logo=streamlit)](https://streamlit.io)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python)](https://python.org)
-[![yfinance](https://img.shields.io/badge/Data-yfinance-00C244)](https://github.com/ranaroussi/yfinance)
-[![Version](https://img.shields.io/badge/Version-4.1-00e5ff)](#)
+<div align="center">
+
+### 🌐 [**LIVE DEMO → market-nexus-myds7qdhci8mnmhvpylbmw.streamlit.app**](https://market-nexus-myds7qdhci8mnmhvpylbmw.streamlit.app)
+
+[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-Open%20App-00d4ff?style=for-the-badge&logoColor=white)](https://market-nexus-myds7qdhci8mnmhvpylbmw.streamlit.app)
+[![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![yfinance](https://img.shields.io/badge/Data-yfinance-00C244?style=for-the-badge)](https://github.com/ranaroussi/yfinance)
+[![Version](https://img.shields.io/badge/Version-5.0-ff6b35?style=for-the-badge)](#)
+
+</div>
 
 ---
 
@@ -14,13 +21,24 @@
 
 | Page | What you get |
 |---|---|
-| 🏠 **Command Center** | KPIs, revenue race, stock returns, treemap, revenue/employee |
+| 🏠 **Command Center** | Live KPIs, revenue race, stock returns, treemap, revenue/employee |
 | 📈 **Stock Performance** | Bollinger bands, MA50/MA200, volatility, annual return heatmap, violin plots |
 | 💰 **Revenue & Earnings** | Quarterly deep-dive, CAGR, stacked revenue, net income trends |
 | 🏆 **Competitive Analysis** | Radar chart, rankings board, P/S ratio, animated bubble chart |
 | 🔬 **Deep Analytics** | Correlation matrix, normality tests, Q-Q plots, drawdown analysis |
 | 🤖 **AI Insight Engine** | Auto-generated insights, full company scorecard |
 | 📡 **Live Dashboard** | Real-time intraday prices, candlestick charts, 60s auto-refresh |
+
+---
+
+## 🎨 v5.0 Design Highlights
+
+- **Glassmorphism UI** — cards with `backdrop-filter: blur` and layered gradients
+- **Aurora Background** — animated radial glow orbs on the hero section
+- **Live Ticker Tape** — scrolling symbol bar across the top
+- **Spring Hover Physics** — KPI cards lift with `cubic-bezier(0.34, 1.56, 0.64, 1)`
+- **Premium Typography** — Plus Jakarta Sans + Syne + JetBrains Mono
+- **Curated Palette** — Cyan `#00d4ff` · Orange `#ff6b35` · Green `#00ff9d`
 
 ---
 
@@ -46,65 +64,44 @@ streamlit run nexus.py
 | `stock_prices.csv` | Daily OHLCV · 2020–2025 | yfinance live |
 
 ### Live Mode (yfinance)
-- `live_data.py` fetches real-time fundamentals, price history, intraday bars and quarterly/annual earnings
-- Auto-merges with CSV fallback so the app always has data even when markets are closed
-- Prices delayed up to 15 minutes during market hours
+
+When `live_data.py` is available, the app fetches:
+- Real-time prices & intraday OHLCV via yfinance
+- Live fundamentals (market cap, P/E, revenue TTM)
+- 5-year price history merged with CSV baseline
 
 ---
 
-## 🏗️ Architecture
+## 🏢 Companies Tracked
 
-```
-nexus.py          ← main Streamlit app (v4.1)
-live_data.py      ← yfinance data layer
-annual_metrics.csv
-quarterly_revenue.csv
-stock_prices.csv
-requirements.txt
-```
-
-### Key Design Decisions (v4.1)
-- **`best_common_year()`** — finds the year where the most selected companies have data, prevents single-company year lock-in when yfinance fiscal calendars differ
-- **`get_latest_slice()`** — used on every "latest year" chart/table across all pages, always resolves to the correct shared year
-- **`COMMON_LATEST_YEAR`** — computed at startup, used for slider max and all cross-page defaults
-
----
-
-## 📊 Companies Covered
-
-| Company | Ticker | Sector |
+| Ticker | Company | Sector |
 |---|---|---|
-| Apple | AAPL | Hardware |
-| Microsoft | MSFT | Cloud/Software |
-| Google | GOOGL | Digital Ads |
-| Amazon | AMZN | E-Commerce/Cloud |
-| Meta | META | Social Media |
-| NVIDIA | NVDA | Semiconductors |
-| Tesla | TSLA | EV/Energy |
-| Netflix | NFLX | Streaming |
+| AAPL | Apple | Consumer Tech |
+| MSFT | Microsoft | Cloud / Enterprise |
+| GOOGL | Google (Alphabet) | Search / Cloud |
+| AMZN | Amazon | E-Commerce / Cloud |
+| META | Meta | Social Media |
+| NVDA | NVIDIA | Semiconductors / AI |
+| TSLA | Tesla | EVs / Energy |
+| NFLX | Netflix | Streaming |
 
 ---
 
-## 🔧 Requirements
+## 🛠️ Tech Stack
 
-```
-streamlit>=1.35.0
-pandas>=2.2.0
-numpy>=1.26.0
-plotly>=5.22.0
-scipy>=1.13.0
-yfinance>=0.2.61
-streamlit-autorefresh>=1.0.1
-requests>=2.32.0
-```
+| Layer | Technology |
+|---|---|
+| **Framework** | Streamlit |
+| **Data** | yfinance, pandas, numpy |
+| **Visualisation** | Plotly (graph_objects + express) |
+| **Statistics** | scipy.stats |
+| **Fonts** | Google Fonts (Syne, Plus Jakarta Sans, JetBrains Mono) |
 
 ---
 
 ## 👨‍💻 Author
 
-**Jyotheeswar Gudipalli**  
-B.Tech Data Science 2027 · Manipal University Jaipur  
+**Jyotheeswar Gudipalli**
+B.Tech Data Science 2027 · Manipal University Jaipur
 
----
-
-*Data sourced from yfinance, public earnings reports & SEC filings. Prices delayed up to 15 minutes.*
+[![GitHub](https://img.shields.io/badge/GitHub-jyotheeswar012--max-181717?style=flat&logo=github)](https://github.com/jyotheeswar012-max)
