@@ -17,176 +17,122 @@ from datetime import datetime
 from pathlib import Path
 from scipy import stats as scipy_stats
 
-st.set_page_config(page_title="MARKET NEXUS", page_icon="🚀",
-                   layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="MARKET NEXUS", page_icon="🚀",
+    layout="wide", initial_sidebar_state="expanded"
+)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# LIGHT PREMIUM CSS
-# ══════════════════════════════════════════════════════════════════════════════
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-:root {
-  --bg:#f0f4ff; --bg2:#e8eeff; --white:#ffffff; --card:#ffffff; --card-alt:#fafbff;
-  --surface:#f5f7ff; --primary:#4f46e5; --primary-l:#6366f1; --primary-xl:#818cf8;
-  --accent:#06b6d4; --accent2:#0ea5e9; --orange:#f97316; --orange2:#fb923c;
-  --green:#10b981; --green2:#34d399; --red:#ef4444; --red2:#f87171;
-  --purple:#8b5cf6; --pink:#ec4899; --yellow:#f59e0b;
-  --txt:#0f172a; --txt2:#475569; --txt3:#94a3b8; --txt4:#cbd5e1;
-  --border:rgba(99,102,241,0.12); --border2:rgba(99,102,241,0.22);
-  --shadow-sm:0 1px 3px rgba(0,0,0,0.05),0 1px 2px rgba(0,0,0,0.04);
-  --shadow:0 4px 16px rgba(0,0,0,0.06),0 1px 4px rgba(0,0,0,0.04);
-  --shadow-lg:0 12px 40px rgba(79,70,229,0.12),0 4px 12px rgba(0,0,0,0.06);
-  --shadow-xl:0 24px 60px rgba(79,70,229,0.15),0 8px 20px rgba(0,0,0,0.08);
-  --radius:16px; --radius-lg:24px; --radius-xl:32px;
+:root{
+  --bg:#f0f4ff;--white:#ffffff;--surface:#f5f7ff;
+  --primary:#4f46e5;--accent:#06b6d4;--orange:#f97316;
+  --green:#10b981;--red:#ef4444;--purple:#8b5cf6;--pink:#ec4899;--yellow:#f59e0b;
+  --txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;--txt4:#cbd5e1;
+  --border:rgba(99,102,241,0.12);--border2:rgba(99,102,241,0.22);
+  --shadow:0 4px 16px rgba(0,0,0,0.06);--shadow-lg:0 12px 40px rgba(79,70,229,0.12);
+  --shadow-xl:0 24px 60px rgba(79,70,229,0.15);
+  --radius:16px;--radius-xl:32px;
 }
-* { box-sizing:border-box; }
-.stApp { background:var(--bg)!important; font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; color:var(--txt); }
-.stApp::before {
-  content:''; position:fixed; inset:0;
-  background:
-    radial-gradient(ellipse 100% 80% at 0% 0%,rgba(99,102,241,0.08) 0%,transparent 50%),
-    radial-gradient(ellipse 80% 60% at 100% 100%,rgba(6,182,212,0.06) 0%,transparent 50%),
-    radial-gradient(ellipse 60% 50% at 50% 0%,rgba(249,115,22,0.04) 0%,transparent 50%);
-  pointer-events:none; z-index:0;
-}
-.main .block-container { padding:1.4rem 2.2rem!important; max-width:100%!important; position:relative; z-index:1; }
-#MainMenu,footer,header { visibility:hidden; }
-.stDeployButton { display:none; }
-[data-testid="stSidebar"] {
+*{box-sizing:border-box;}
+.stApp{background:var(--bg)!important;font-family:'Inter',sans-serif;color:var(--txt);}
+.main .block-container{padding:1.4rem 2.2rem!important;max-width:100%!important;}
+#MainMenu,footer,header{visibility:hidden;}
+.stDeployButton{display:none;}
+[data-testid="stSidebar"]{
   background:linear-gradient(180deg,#4f46e5 0%,#6366f1 40%,#818cf8 100%)!important;
-  border-right:none!important; box-shadow:4px 0 24px rgba(79,70,229,0.15);
+  border-right:none!important;box-shadow:4px 0 24px rgba(79,70,229,0.15);
 }
-[data-testid="stSidebar"] * { color:#fff!important; }
+[data-testid="stSidebar"] *{color:#fff!important;}
 [data-testid="stSidebar"] .stSelectbox>div>div,
-[data-testid="stSidebar"] .stMultiSelect>div>div {
-  background:rgba(255,255,255,0.15)!important; border:1px solid rgba(255,255,255,0.25)!important;
-  border-radius:12px!important; backdrop-filter:blur(12px); color:#fff!important;
+[data-testid="stSidebar"] .stMultiSelect>div>div{
+  background:rgba(255,255,255,0.15)!important;border:1px solid rgba(255,255,255,0.25)!important;
+  border-radius:12px!important;color:#fff!important;
 }
-[data-testid="stSidebar"] .stSelectbox label,[data-testid="stSidebar"] .stMultiSelect label {
-  font-size:0.65rem!important; text-transform:uppercase; letter-spacing:0.14em; opacity:0.7;
-}
-[data-testid="stSidebar"] .stSlider>div>div>div { background:rgba(255,255,255,0.3)!important; }
-.hero {
-  position:relative; overflow:hidden;
+.hero{
+  position:relative;overflow:hidden;
   background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 30%,#06b6d4 70%,#10b981 100%);
-  border-radius:var(--radius-xl); padding:3.2rem 3.8rem 3rem; margin-bottom:2rem;
-  box-shadow:var(--shadow-xl); color:#fff;
+  border-radius:var(--radius-xl);padding:3.2rem 3.8rem 3rem;margin-bottom:2rem;
+  box-shadow:var(--shadow-xl);color:#fff;
 }
-.hero::before {
-  content:''; position:absolute; inset:0;
-  background:
-    radial-gradient(circle 400px at 20% 50%,rgba(255,255,255,0.15) 0%,transparent 70%),
-    radial-gradient(circle 300px at 80% 30%,rgba(255,255,255,0.1) 0%,transparent 70%);
-  pointer-events:none;
-}
-.hero::after {
-  content:''; position:absolute; inset:0; opacity:0.06;
-  background-image:linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px);
-  background-size:48px 48px; pointer-events:none;
-}
-.hero-orb1 { position:absolute; width:300px; height:300px; border-radius:50%; background:rgba(255,255,255,0.08); top:-80px; right:-60px; animation:orb-float 8s ease-in-out infinite; }
-.hero-orb2 { position:absolute; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,0.06); bottom:-50px; left:10%; animation:orb-float 10s ease-in-out infinite reverse; }
-.hero-orb3 { position:absolute; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.1); top:20%; right:30%; animation:orb-float 6s ease-in-out infinite 1s; }
-@keyframes orb-float { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(15px,-20px) scale(1.08);} 66%{transform:translate(-10px,12px) scale(0.95);} }
-.hero-eyebrow { font-family:'JetBrains Mono',monospace; font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase; opacity:0.85; margin-bottom:0.9rem; display:flex; align-items:center; gap:0.5rem; }
-.hero-eyebrow::before { content:''; display:inline-block; width:24px; height:2px; background:rgba(255,255,255,0.6); border-radius:2px; }
-.hero-title { font-family:'Outfit',sans-serif; font-size:4.5rem; font-weight:900; line-height:1.0; letter-spacing:-0.035em; margin:0 0 0.8rem 0; text-shadow:0 4px 20px rgba(0,0,0,0.15); }
-.hero-sub { font-size:1.05rem; line-height:1.7; max-width:620px; opacity:0.9; font-weight:400; }
-.hero-chips { display:flex; gap:0.6rem; flex-wrap:wrap; margin-top:1.6rem; }
-.chip { display:inline-flex; align-items:center; gap:0.4rem; background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); color:#fff!important; font-family:'JetBrains Mono',monospace; font-size:0.65rem; font-weight:500; padding:0.4rem 1rem; border-radius:100px; letter-spacing:0.04em; backdrop-filter:blur(8px); transition:all 0.2s; }
-.chip:hover { background:rgba(255,255,255,0.28); transform:translateY(-1px); }
-.ticker-wrap { overflow:hidden; background:var(--white); border:1px solid var(--border); border-radius:100px; padding:0.55rem 0; margin-bottom:1.8rem; box-shadow:var(--shadow-sm); white-space:nowrap; }
-.ticker-inner { display:inline-block; animation:ticker-scroll 35s linear infinite; font-family:'JetBrains Mono',monospace; font-size:0.72rem; letter-spacing:0.04em; color:var(--txt3); }
-.ticker-inner span.sym { color:var(--primary); font-weight:700; margin:0 0.25rem; }
-@keyframes ticker-scroll { 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
-.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:1.2rem; margin-bottom:2rem; }
-.kpi { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:1.6rem 1.8rem 1.5rem; position:relative; overflow:hidden; cursor:default; box-shadow:var(--shadow); transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1); }
-.kpi:hover { transform:translateY(-6px) scale(1.02); box-shadow:var(--shadow-xl); border-color:var(--border2); }
-.kpi-stripe { position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--primary),var(--accent)); border-radius:var(--radius) var(--radius) 0 0; }
-.kpi-stripe.orange { background:linear-gradient(90deg,var(--orange),var(--yellow)); }
-.kpi-stripe.green  { background:linear-gradient(90deg,var(--green),var(--accent)); }
-.kpi-stripe.purple { background:linear-gradient(90deg,var(--purple),var(--pink)); }
-.kpi-label { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.14em; color:var(--txt3); margin-bottom:0.6rem; font-weight:600; }
-.kpi-val { font-family:'Outfit',sans-serif; font-size:2.3rem; font-weight:800; line-height:1.0; color:var(--primary)!important; letter-spacing:-0.03em; }
-.kpi-val.orange { color:var(--orange)!important; }
-.kpi-val.green  { color:var(--green)!important; }
-.kpi-val.purple { color:var(--purple)!important; }
-.kpi-sub { font-family:'JetBrains Mono',monospace; font-size:0.66rem; color:var(--txt3); margin-top:0.5rem; }
-.kpi-icon { position:absolute; right:1.5rem; bottom:1.3rem; font-size:2.5rem; opacity:0.08; }
-.kpi-badge { position:absolute; top:1.1rem; right:1rem; font-family:'JetBrains Mono',monospace; font-size:0.58rem; letter-spacing:0.06em; padding:0.22rem 0.7rem; border-radius:100px; font-weight:700; }
-.up   { background:rgba(16,185,129,0.12); color:var(--green)!important;  border:1px solid rgba(16,185,129,0.25); }
-.down { background:rgba(239,68,68,0.10);  color:var(--red)!important;    border:1px solid rgba(239,68,68,0.2); }
-.flat { background:rgba(245,158,11,0.10); color:var(--yellow)!important; border:1px solid rgba(245,158,11,0.2); }
-.sec { display:flex; align-items:center; gap:1rem; margin:2.5rem 0 1.4rem 0; }
-.sec-title { font-family:'Outfit',sans-serif; font-size:0.9rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap; color:var(--txt); }
-.sec-line { flex:1; height:1px; background:linear-gradient(90deg,var(--border2),transparent); }
-.sec-tag { font-family:'JetBrains Mono',monospace; font-size:0.58rem; color:var(--white)!important; letter-spacing:0.08em; white-space:nowrap; background:linear-gradient(135deg,var(--primary),var(--accent)); padding:0.28rem 0.8rem; border-radius:100px; font-weight:600; }
-.chart-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:1.4rem 1.4rem 0.8rem; margin-bottom:1.2rem; box-shadow:var(--shadow-sm); }
-.rank-row { display:flex; align-items:center; gap:0.85rem; padding:0.75rem 1rem; border-radius:12px; margin-bottom:0.35rem; border:1px solid transparent; transition:all 0.2s ease; }
-.rank-row:hover { border-color:var(--border); background:var(--surface); box-shadow:var(--shadow-sm); }
-.rank-num { font-family:'Outfit',sans-serif; font-size:1.1rem; font-weight:800; color:var(--txt4); width:1.5rem; text-align:center; }
-.rank-name { font-weight:600; font-size:0.88rem; flex:1; color:var(--txt); }
-.rank-val { font-family:'JetBrains Mono',monospace; font-size:0.82rem; color:var(--primary); font-weight:600; }
-.stTabs [data-baseweb="tab-list"] { gap:0.35rem; background:transparent; border-bottom:2px solid var(--border); padding-bottom:0; }
-.stTabs [data-baseweb="tab"] { background:transparent!important; border:none!important; border-bottom:3px solid transparent!important; border-radius:0!important; color:var(--txt3)!important; font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:600; padding:0.7rem 1.3rem!important; transition:all 0.2s; }
-.stTabs [data-baseweb="tab"]:hover { color:var(--primary)!important; }
-.stTabs [aria-selected="true"] { color:var(--primary)!important; border-bottom-color:var(--primary)!important; background:transparent!important; }
-.live { display:inline-block; width:8px; height:8px; background:#34d399; border-radius:50%; margin-right:6px; vertical-align:middle; box-shadow:0 0 0 3px rgba(52,211,153,0.3); animation:pulse-ring 2s ease infinite; }
-@keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(52,211,153,0.5);} 70%{box-shadow:0 0 0 8px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);} }
-.insight-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem 2rem; margin-bottom:1rem; border-left:4px solid var(--primary); box-shadow:var(--shadow); transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); position:relative; overflow:hidden; }
-.insight-card::before { content:''; position:absolute; top:0; left:0; bottom:0; width:120px; background:linear-gradient(90deg,rgba(79,70,229,0.04),transparent); pointer-events:none; }
-.insight-card:hover { transform:translateX(6px); box-shadow:var(--shadow-lg); }
-.insight-title { font-family:'Outfit',sans-serif; font-size:0.95rem; font-weight:700; color:var(--txt); margin-bottom:0.5rem; }
-.insight-body { font-size:0.88rem; color:var(--txt2); line-height:1.8; }
-.glass-panel { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem 1.8rem; box-shadow:var(--shadow); position:relative; }
-.page-title { font-family:'Outfit',sans-serif; font-size:2.5rem; font-weight:800; letter-spacing:-0.03em; background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:1.6rem; }
-::-webkit-scrollbar { width:6px; height:6px; }
-::-webkit-scrollbar-track { background:var(--bg); }
-::-webkit-scrollbar-thumb { background:var(--txt4); border-radius:3px; }
-::-webkit-scrollbar-thumb:hover { background:var(--txt3); }
-[data-testid="stDataFrame"] { border-radius:14px; overflow:hidden; border:1px solid var(--border)!important; box-shadow:var(--shadow-sm); }
-[data-testid="stMetric"] { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.3rem; box-shadow:var(--shadow-sm); }
-[data-testid="stMetricLabel"] { font-size:0.65rem!important; text-transform:uppercase; letter-spacing:0.1em; color:var(--txt3)!important; font-weight:600; }
-[data-testid="stMetricValue"] { font-family:'Outfit',sans-serif!important; color:var(--primary)!important; font-weight:700; }
-.logo-wrap { padding:1.6rem 0 1.2rem; }
-.logo-text { font-family:'Outfit',sans-serif; font-size:1.6rem; font-weight:900; color:#fff!important; letter-spacing:-0.03em; }
-.logo-sub { font-family:'JetBrains Mono',monospace; font-size:0.55rem; color:rgba(255,255,255,0.55)!important; letter-spacing:0.16em; margin-top:0.25rem; }
-.logo-badge { display:inline-flex; align-items:center; gap:0.45rem; margin-top:1rem; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); border-radius:100px; padding:0.35rem 0.85rem; backdrop-filter:blur(8px); }
-.logo-badge-text { font-family:'JetBrains Mono',monospace; font-size:0.6rem; color:#fff!important; letter-spacing:0.06em; }
-.h-divider { height:1px; background:rgba(255,255,255,0.15); margin:0.8rem 0; }
-@keyframes slide-up { from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);} }
-.animate-in { animation:slide-up 0.5s ease forwards; }
+.hero-title{font-family:'Outfit',sans-serif;font-size:4.5rem;font-weight:900;line-height:1.0;letter-spacing:-0.035em;margin:0 0 0.8rem 0;}
+.hero-sub{font-size:1.05rem;line-height:1.7;max-width:620px;opacity:0.9;}
+.hero-chips{display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:1.6rem;}
+.chip{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);color:#fff!important;font-size:0.65rem;font-weight:500;padding:0.4rem 1rem;border-radius:100px;}
+.ticker-wrap{overflow:hidden;background:var(--white);border:1px solid var(--border);border-radius:100px;padding:0.55rem 0;margin-bottom:1.8rem;white-space:nowrap;}
+.ticker-inner{display:inline-block;animation:ticker-scroll 35s linear infinite;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--txt3);}
+.ticker-inner span.sym{color:var(--primary);font-weight:700;margin:0 0.25rem;}
+@keyframes ticker-scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;margin-bottom:2rem;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.6rem 1.8rem 1.5rem;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:all 0.3s;}
+.kpi:hover{transform:translateY(-5px);box-shadow:var(--shadow-xl);}
+.kpi-stripe{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));}
+.kpi-stripe.orange{background:linear-gradient(90deg,var(--orange),var(--yellow));}
+.kpi-stripe.green{background:linear-gradient(90deg,var(--green),var(--accent));}
+.kpi-stripe.purple{background:linear-gradient(90deg,var(--purple),var(--pink));}
+.kpi-label{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--txt3);margin-bottom:0.6rem;font-weight:600;}
+.kpi-val{font-family:'Outfit',sans-serif;font-size:2.3rem;font-weight:800;line-height:1.0;color:var(--primary)!important;}
+.kpi-val.orange{color:var(--orange)!important;}
+.kpi-val.green{color:var(--green)!important;}
+.kpi-val.purple{color:var(--purple)!important;}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:0.66rem;color:var(--txt3);margin-top:0.5rem;}
+.kpi-icon{position:absolute;right:1.5rem;bottom:1.3rem;font-size:2.5rem;opacity:0.08;}
+.kpi-badge{position:absolute;top:1.1rem;right:1rem;font-size:0.58rem;padding:0.22rem 0.7rem;border-radius:100px;font-weight:700;}
+.up{background:rgba(16,185,129,0.12);color:var(--green)!important;border:1px solid rgba(16,185,129,0.25);}
+.down{background:rgba(239,68,68,0.10);color:var(--red)!important;border:1px solid rgba(239,68,68,0.2);}
+.flat{background:rgba(245,158,11,0.10);color:var(--yellow)!important;border:1px solid rgba(245,158,11,0.2);}
+.sec{display:flex;align-items:center;gap:1rem;margin:2.5rem 0 1.4rem 0;}
+.sec-title{font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt);}
+.sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
+.sec-tag{font-size:0.58rem;color:var(--white)!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
+.page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.6rem;}
+.insight-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 2rem;margin-bottom:1rem;border-left:4px solid var(--primary);box-shadow:var(--shadow);transition:all 0.25s;}
+.insight-card:hover{transform:translateX(6px);box-shadow:var(--shadow-lg);}
+.insight-title{font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:700;color:var(--txt);margin-bottom:0.5rem;}
+.insight-body{font-size:0.88rem;color:var(--txt2);line-height:1.8;}
+.live{display:inline-block;width:8px;height:8px;background:#34d399;border-radius:50%;margin-right:6px;vertical-align:middle;animation:pulse-ring 2s ease infinite;}
+@keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(52,211,153,0.5);}70%{box-shadow:0 0 0 8px rgba(52,211,153,0);}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}}
+.logo-wrap{padding:1.6rem 0 1.2rem;}
+.logo-text{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:900;color:#fff!important;}
+.logo-sub{font-size:0.55rem;color:rgba(255,255,255,0.55)!important;letter-spacing:0.16em;margin-top:0.25rem;}
+.h-divider{height:1px;background:rgba(255,255,255,0.15);margin:0.8rem 0;}
+.stTabs [data-baseweb="tab-list"]{gap:0.35rem;background:transparent;border-bottom:2px solid var(--border);}
+.stTabs [data-baseweb="tab"]{background:transparent!important;border:none!important;border-bottom:3px solid transparent!important;border-radius:0!important;color:var(--txt3)!important;font-size:0.85rem;font-weight:600;padding:0.7rem 1.3rem!important;transition:all 0.2s;}
+.stTabs [data-baseweb="tab"]:hover{color:var(--primary)!important;}
+.stTabs [aria-selected="true"]{color:var(--primary)!important;border-bottom-color:var(--primary)!important;background:transparent!important;}
+[data-testid="stMetric"]{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem;}
+[data-testid="stMetricValue"]{font-family:'Outfit',sans-serif!important;color:var(--primary)!important;font-weight:700;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--txt4);border-radius:3px;}
 </style>
 """, unsafe_allow_html=True)
 
-# ── PLOTLY LAYOUT ─────────────────────────────────────────────────────────────
+# ── CONSTANTS ─────────────────────────────────────────────────────────────────
 PL = dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     font=dict(family="Inter", color="#475569", size=11),
-    xaxis=dict(gridcolor="rgba(0,0,0,0.04)", zerolinecolor="rgba(0,0,0,0.07)", linecolor="rgba(0,0,0,0.06)"),
-    yaxis=dict(gridcolor="rgba(0,0,0,0.04)", zerolinecolor="rgba(0,0,0,0.07)", linecolor="rgba(0,0,0,0.06)"),
+    xaxis=dict(gridcolor="rgba(0,0,0,0.04)", zerolinecolor="rgba(0,0,0,0.07)"),
+    yaxis=dict(gridcolor="rgba(0,0,0,0.04)", zerolinecolor="rgba(0,0,0,0.07)"),
     margin=dict(l=10, r=10, t=44, b=10),
-    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0.06)", borderwidth=1,
-                font=dict(size=10, color="#64748b"), orientation='h', y=1.1),
+    legend=dict(bgcolor="rgba(0,0,0,0)", borderwidth=1,
+                font=dict(size=10, color="#64748b"), orientation='h', y=1.12),
 )
 COLORS = {
-    'Apple':     '#1d1d1f',
-    'Microsoft': '#0078d4',
-    'Google':    '#ea4335',
-    'Amazon':    '#ff9900',
-    'Meta':      '#0668e1',
-    'NVIDIA':    '#76b900',
-    'Tesla':     '#cc0000',
-    'Netflix':   '#e50914',
+    'Apple': '#1d1d1f', 'Microsoft': '#0078d4', 'Google': '#ea4335',
+    'Amazon': '#ff9900', 'Meta': '#0668e1', 'NVIDIA': '#76b900',
+    'Tesla': '#cc0000', 'Netflix': '#e50914',
 }
 ALL_COMPANIES = list(COLORS.keys())
+
 
 def hex_to_rgba(h, a=0.15):
     h = h.lstrip('#')
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f'rgba({r},{g},{b},{a})'
+
 
 def sf(fig, h=360, legend=True):
     kw = dict(**PL, height=h)
@@ -195,6 +141,7 @@ def sf(fig, h=360, legend=True):
     fig.update_layout(**kw)
     return fig
 
+
 def sec(title, tag=""):
     t = f'<div class="sec-tag">{tag}</div>' if tag else ''
     st.markdown(
@@ -202,13 +149,14 @@ def sec(title, tag=""):
         f'<div class="sec-line"></div>{t}</div>',
         unsafe_allow_html=True)
 
-# ── LIVE DATA IMPORTS ─────────────────────────────────────────────────────────
+
+# ── OPTIONAL LIVE IMPORTS ─────────────────────────────────────────────────────
 try:
     from live_data import (
         get_live_price, get_intraday_data, get_multi_live_prices,
         get_all_fundamentals, get_all_price_history,
         get_all_quarterly, get_all_annual, merge_with_csv,
-        COMPANIES as LIVE_COMPANIES, COMPANY_COLORS, NAME_TO_TICKER
+        COMPANIES as LIVE_COMPANIES, COMPANY_COLORS, NAME_TO_TICKER,
     )
     _live_ok = True
 except ImportError:
@@ -220,7 +168,8 @@ try:
 except ImportError:
     _autorefresh_ok = False
 
-# ── CSV LOADING ───────────────────────────────────────────────────────────────
+
+# ── DATA LOADERS ──────────────────────────────────────────────────────────────
 @st.cache_data
 def load_csv():
     base = Path(__file__).parent
@@ -229,29 +178,46 @@ def load_csv():
     p = pd.read_csv(base / "stock_prices.csv", parse_dates=["Date"])
     return q, a, p
 
+
 @st.cache_data(ttl=43200)
 def load_live_annual():
-    if not _live_ok: return pd.DataFrame()
-    try: return get_all_annual()
-    except: return pd.DataFrame()
+    if not _live_ok:
+        return pd.DataFrame()
+    try:
+        return get_all_annual()
+    except Exception:
+        return pd.DataFrame()
+
 
 @st.cache_data(ttl=43200)
 def load_live_quarterly():
-    if not _live_ok: return pd.DataFrame()
-    try: return get_all_quarterly()
-    except: return pd.DataFrame()
+    if not _live_ok:
+        return pd.DataFrame()
+    try:
+        return get_all_quarterly()
+    except Exception:
+        return pd.DataFrame()
+
 
 @st.cache_data(ttl=86400)
 def load_live_prices():
-    if not _live_ok: return pd.DataFrame()
-    try: return get_all_price_history(period="5y")
-    except: return pd.DataFrame()
+    if not _live_ok:
+        return pd.DataFrame()
+    try:
+        return get_all_price_history(period="5y")
+    except Exception:
+        return pd.DataFrame()
+
 
 @st.cache_data(ttl=60)
 def load_live_fundamentals():
-    if not _live_ok: return pd.DataFrame()
-    try: return get_all_fundamentals()
-    except: return pd.DataFrame()
+    if not _live_ok:
+        return pd.DataFrame()
+    try:
+        return get_all_fundamentals()
+    except Exception:
+        return pd.DataFrame()
+
 
 @st.cache_data(ttl=3600)
 def build_merged_data():
@@ -289,20 +255,26 @@ def build_merged_data():
     q_df['Quarter']  = pd.to_datetime(q_df['Quarter'])
     price_df['Date'] = pd.to_datetime(price_df['Date']).dt.tz_localize(None)
     ann_df['Year']   = ann_df['Year'].astype(int)
-
     return ann_df, q_df, price_df
+
 
 ann_df, q_df, price_df = build_merged_data()
 fund_df = load_live_fundamentals()
 
-def best_common_year(df, all_cos=ALL_COMPANIES):
+
+def best_common_year(df, all_cos=None):
+    if all_cos is None:
+        all_cos = ALL_COMPANIES
     year_counts = df[df.Company.isin(all_cos)].groupby('Year')['Company'].nunique()
-    if year_counts.empty: return int(df['Year'].max())
+    if year_counts.empty:
+        return int(df['Year'].max())
     half  = max(1, len(all_cos) // 2)
     valid = year_counts[year_counts >= half]
     return int(valid.index.max()) if not valid.empty else int(year_counts.index.max())
 
+
 COMMON_LATEST_YEAR = best_common_year(ann_df)
+
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -311,28 +283,23 @@ with st.sidebar:
       <div style="font-size:2rem;margin-bottom:0.35rem;">🚀</div>
       <div class="logo-text">MARKET NEXUS</div>
       <div class="logo-sub">BIG TECH INTELLIGENCE · v6.0</div>
-      <div class="logo-badge">
-        <span class="live"></span>
-        <span class="logo-badge-text">LIVE · 8 COMPANIES</span>
-      </div>
     </div>
     <div class="h-divider"></div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">🏢 Companies</div>', unsafe_allow_html=True)
-    sel_companies = st.multiselect("", ALL_COMPANIES, default=ALL_COMPANIES, label_visibility="hidden")
+    sel_companies = st.multiselect(
+        "Companies", ALL_COMPANIES, default=ALL_COMPANIES
+    )
     if not sel_companies:
         sel_companies = ALL_COMPANIES
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">📅 Year Range</div>', unsafe_allow_html=True)
     slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
     slider_max = COMMON_LATEST_YEAR
-    year_range = st.slider("", slider_min, slider_max, (slider_min, slider_max), label_visibility="hidden")
+    year_range = st.slider("Year Range", slider_min, slider_max, (slider_min, slider_max))
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">🗂 Navigation</div>', unsafe_allow_html=True)
-    page = st.selectbox("", [
+    page = st.selectbox("Navigation", [
         "🏠  Command Center",
         "📈  Stock Performance",
         "💰  Revenue & Earnings",
@@ -340,61 +307,73 @@ with st.sidebar:
         "🔬  Deep Analytics",
         "🤖  AI Insight Engine",
         "📡  Live Dashboard",
-    ], label_visibility="hidden")
+    ])
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     data_src = "yfinance LIVE" if (_live_ok and not ann_df.empty) else "CSV Fallback"
-    companies_in_latest = ann_df[ann_df.Year == COMMON_LATEST_YEAR]['Company'].nunique()
     price_latest_date = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
-    st.markdown(f"""
-    <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;opacity:0.45;line-height:2.2;">
-      🕐 {datetime.now().strftime("%H:%M:%S")}<br>
-      📡 {data_src}<br>
-      📅 {COMMON_LATEST_YEAR} ({companies_in_latest}/8)<br>
-      📈 Prices to: {price_latest_date}<br>
-      🗂 {len(q_df)+len(ann_df)+len(price_df):,} records
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='font-size:0.6rem;opacity:0.5;line-height:2;'>"
+        f"🕐 {datetime.now().strftime('%H:%M:%S')}<br>"
+        f"📡 {data_src}<br>"
+        f"📅 Latest year: {COMMON_LATEST_YEAR}<br>"
+        f"📈 Prices to: {price_latest_date}<br>"
+        f"🗂 {len(q_df)+len(ann_df)+len(price_df):,} records"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
 
 # ── FILTERED DATA ─────────────────────────────────────────────────────────────
-ann_f = ann_df[(ann_df.Company.isin(sel_companies)) & (ann_df.Year.between(*year_range))]
-q_f   = q_df[(q_df.Company.isin(sel_companies)) & (q_df.Quarter.dt.year.between(*year_range))]
-p_f   = price_df[(price_df.Company.isin(sel_companies)) & (price_df.Date.dt.year.between(*year_range))]
+ann_f = ann_df[
+    (ann_df.Company.isin(sel_companies)) &
+    (ann_df.Year.between(*year_range))
+]
+q_f = q_df[
+    (q_df.Company.isin(sel_companies)) &
+    (q_df.Quarter.dt.year.between(*year_range))
+]
+p_f = price_df[
+    (price_df.Company.isin(sel_companies)) &
+    (price_df.Date.dt.year.between(*year_range))
+]
+
 
 def get_latest_slice(df, companies, fallback_year=None):
     sub = df[df.Company.isin(companies)]
     yr  = best_common_year(sub, companies) if fallback_year is None else fallback_year
     return sub[sub.Year == yr].copy(), yr
 
+
 # ── TICKER TAPE ───────────────────────────────────────────────────────────────
 ticker_symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX"]
-ticker_display = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in ticker_symbols * 2])
-st.markdown(f"""
-<div class="ticker-wrap">
-  <div class="ticker-inner">{ticker_display} &nbsp;&nbsp;&nbsp; {ticker_display}</div>
-</div>
-""", unsafe_allow_html=True)
+ticker_display = " &nbsp;·&nbsp; ".join(
+    [f'<span class="sym">{s}</span>' for s in ticker_symbols * 2]
+)
+st.markdown(
+    f'<div class="ticker-wrap"><div class="ticker-inner">{ticker_display} &nbsp;&nbsp; {ticker_display}</div></div>',
+    unsafe_allow_html=True
+)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: COMMAND CENTER
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════
+# PAGE 1 — COMMAND CENTER
+# ════════════════════════════════════════════════════════════════════
 if "Command Center" in page:
 
     st.markdown("""
-    <div class="hero animate-in">
-      <div class="hero-orb1"></div><div class="hero-orb2"></div><div class="hero-orb3"></div>
+    <div class="hero">
       <div style="position:relative;z-index:1;">
-        <div class="hero-eyebrow">⚡ Live Big Tech Intelligence Platform</div>
+        <div style="font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;opacity:0.8;margin-bottom:0.8rem;">⚡ Live Big Tech Intelligence Platform</div>
         <p class="hero-title">MARKET<br>NEXUS</p>
         <p class="hero-sub">
           Real-time financial intelligence across
-          <strong>Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix</strong> —
-          powered by yfinance live feeds &amp; competitive benchmarks.
+          <strong>Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix</strong>
+          — powered by yfinance live feeds.
         </p>
         <div class="hero-chips">
           <span class="chip">📊 Live Earnings</span>
-          <span class="chip">📈 Real Stock History</span>
+          <span class="chip">📈 Stock History</span>
           <span class="chip">🏆 Competitive Intel</span>
           <span class="chip">💡 AI Insights</span>
           <span class="chip">📡 Live Prices</span>
@@ -403,6 +382,7 @@ if "Command Center" in page:
     </div>
     """, unsafe_allow_html=True)
 
+    # KPI cards
     if not fund_df.empty:
         kpi_cos     = fund_df[fund_df.Company.isin(sel_companies)]
         total_rev   = kpi_cos.revenue_B.sum()
@@ -419,31 +399,31 @@ if "Command Center" in page:
             latest_sl, lyr = get_latest_slice(ann_df, ALL_COMPANIES)
         total_rev   = latest_sl.Revenue_B.sum()
         total_mcap  = latest_sl.MarketCap_B.sum()
-        top_row_idx = latest_sl.MarketCap_B.idxmax()
-        top_mcap_co = latest_sl.loc[top_row_idx, 'Company']
-        top_mcap    = latest_sl.loc[top_row_idx, 'MarketCap_B']
+        top_idx     = latest_sl.MarketCap_B.idxmax()
+        top_mcap_co = latest_sl.loc[top_idx, 'Company']
+        top_mcap    = latest_sl.loc[top_idx, 'MarketCap_B']
         nvda_sl     = latest_sl[latest_sl.Company == 'NVIDIA']
         nvda_ni     = nvda_sl['NetIncome_B'].values[0] if not nvda_sl.empty else 0
         data_label  = f"CSV · {lyr}"
 
     st.markdown(f"""
     <div class="kpi-row">
-      <div class="kpi animate-in"><div class="kpi-stripe"></div><div class="kpi-icon">💰</div>
+      <div class="kpi"><div class="kpi-stripe"></div><div class="kpi-icon">💰</div>
         <div class="kpi-label">Combined Revenue (TTM)</div>
         <div class="kpi-val">${total_rev/1000:.2f}T</div>
         <div class="kpi-sub">{len(sel_companies)} companies · {data_label}</div>
         <div class="kpi-badge up">↑ LIVE</div></div>
-      <div class="kpi animate-in"><div class="kpi-stripe orange"></div><div class="kpi-icon">🏦</div>
+      <div class="kpi"><div class="kpi-stripe orange"></div><div class="kpi-icon">🏦</div>
         <div class="kpi-label">Combined Market Cap</div>
         <div class="kpi-val orange">${total_mcap/1000:.1f}T</div>
         <div class="kpi-sub">{data_label}</div>
         <div class="kpi-badge up">↑ LIVE</div></div>
-      <div class="kpi animate-in"><div class="kpi-stripe green"></div><div class="kpi-icon">🥇</div>
+      <div class="kpi"><div class="kpi-stripe green"></div><div class="kpi-icon">🥇</div>
         <div class="kpi-label">Largest by Market Cap</div>
         <div class="kpi-val green">{top_mcap_co}</div>
         <div class="kpi-sub">${top_mcap:,.0f}B cap</div>
         <div class="kpi-badge flat">LIVE</div></div>
-      <div class="kpi animate-in"><div class="kpi-stripe purple"></div><div class="kpi-icon">⚡</div>
+      <div class="kpi"><div class="kpi-stripe purple"></div><div class="kpi-icon">⚡</div>
         <div class="kpi-label">NVIDIA Net Income (TTM)</div>
         <div class="kpi-val purple">${nvda_ni:.1f}B</div>
         <div class="kpi-sub">AI boom · {data_label}</div>
@@ -457,23 +437,33 @@ if "Command Center" in page:
         fig = go.Figure()
         for co in sel_companies:
             sub = q_f[q_f.Company == co].sort_values('Quarter')
-            if sub.empty: continue
-            fig.add_trace(go.Scatter(x=sub.Quarter, y=sub.Revenue_B, name=co, mode='lines',
+            if sub.empty:
+                continue
+            fig.add_trace(go.Scatter(
+                x=sub.Quarter, y=sub.Revenue_B, name=co, mode='lines',
                 line=dict(color=COLORS[co], width=2.5),
-                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>${{y:.1f}}B<extra></extra>'))
-        sf(fig, 350).update_layout(title=dict(text="Quarterly Revenue ($B)", font=dict(size=13, color='#334155')),
-            yaxis_title="Revenue ($B)")
+                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>${{y:.1f}}B<extra></extra>'
+            ))
+        sf(fig, 350).update_layout(
+            title=dict(text="Quarterly Revenue ($B)", font=dict(size=13, color='#334155')),
+            yaxis_title="Revenue ($B)"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
     with c2:
         mc_data = ann_f.pivot(index='Year', columns='Company', values='MarketCap_B').fillna(0)
         fig = go.Figure()
         for co in [c for c in sel_companies if c in mc_data.columns]:
-            fig.add_trace(go.Bar(x=mc_data.index, y=mc_data[co], name=co,
+            fig.add_trace(go.Bar(
+                x=mc_data.index, y=mc_data[co], name=co,
                 marker_color=COLORS[co], opacity=0.88,
-                hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:,.0f}}B<extra></extra>'))
+                hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:,.0f}}B<extra></extra>'
+            ))
         fig.update_layout(barmode='group')
-        sf(fig, 350).update_layout(title=dict(text="Market Cap by Year ($B)", font=dict(size=13, color='#334155')),
-            yaxis_title="Market Cap ($B)")
+        sf(fig, 350).update_layout(
+            title=dict(text="Market Cap by Year ($B)", font=dict(size=13, color='#334155')),
+            yaxis_title="Market Cap ($B)"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     sec("Stock Returns & Profitability", "LIVE PRICE HISTORY")
@@ -482,29 +472,41 @@ if "Command Center" in page:
         fig = go.Figure()
         for co in sel_companies:
             sub = p_f[p_f.Company == co].sort_values('Date')
-            if sub.empty: continue
+            if sub.empty:
+                continue
             base = sub.Price.iloc[0]
-            fig.add_trace(go.Scatter(x=sub.Date, y=sub.Price / base * 100, name=co, mode='lines',
+            fig.add_trace(go.Scatter(
+                x=sub.Date, y=sub.Price / base * 100, name=co, mode='lines',
                 line=dict(color=COLORS[co], width=2),
-                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>%{{y:.0f}}<extra></extra>'))
+                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>%{{y:.0f}}<extra></extra>'
+            ))
         fig.add_hline(y=100, line_dash='dot', line_color='rgba(0,0,0,0.08)')
-        sf(fig, 340).update_layout(title=dict(text="Normalised Stock Performance (Base=100)", font=dict(size=13, color='#334155')),
-            yaxis_title="Indexed Return")
+        sf(fig, 340).update_layout(
+            title=dict(text="Normalised Stock Performance (Base=100)", font=dict(size=13, color='#334155')),
+            yaxis_title="Indexed Return"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
     with c2:
         margin_sl, m_yr = get_latest_slice(ann_df, sel_companies)
         margin_sl = margin_sl.copy()
         margin_sl['Margin'] = (margin_sl.NetIncome_B / margin_sl.Revenue_B * 100).round(1)
         margin_sl = margin_sl.sort_values('Margin')
-        fig = go.Figure(go.Bar(x=margin_sl.Margin, y=margin_sl.Company, orientation='h',
-            marker=dict(color=margin_sl.Margin,
-                colorscale=[[0,'#ef4444'],[0.4,'#f97316'],[1,'#10b981']], line=dict(width=0)),
+        fig = go.Figure(go.Bar(
+            x=margin_sl.Margin, y=margin_sl.Company, orientation='h',
+            marker=dict(
+                color=margin_sl.Margin,
+                colorscale=[[0, '#ef4444'], [0.4, '#f97316'], [1, '#10b981']],
+                line=dict(width=0)
+            ),
             text=[f"{v:.1f}%" for v in margin_sl.Margin],
-            textposition='outside', textfont=dict(size=10, color='#64748b'),
-            hovertemplate='<b>%{y}</b><br>Margin: %{x:.1f}%<extra></extra>'))
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Margin: %{x:.1f}%<extra></extra>'
+        ))
         sf(fig, 340, legend=False).update_layout(
             title=dict(text=f"Net Profit Margin {m_yr}", font=dict(size=13, color='#334155')),
-            xaxis_title="Net Margin %")
+            xaxis_title="Net Margin %"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     sec("Revenue Distribution & Headcount", "STRUCTURAL VIEW")
@@ -512,38 +514,50 @@ if "Command Center" in page:
     with c1:
         treemap_sl, t_yr = get_latest_slice(ann_df, sel_companies)
         if not treemap_sl.empty:
-            fig = px.treemap(treemap_sl, path=['Sector','Company'], values='Revenue_B',
+            fig = px.treemap(
+                treemap_sl, path=['Sector', 'Company'], values='Revenue_B',
                 color='NetIncome_B',
-                color_continuous_scale=[[0,'#ef4444'],[0.5,'#f0f4ff'],[1,'#10b981']],
-                hover_data={'Revenue_B':':.1f','NetIncome_B':':.1f'})
-            fig.update_traces(textfont_size=13, textfont_color='#1e293b',
-                hovertemplate='<b>%{label}</b><br>Revenue: $%{value:.1f}B<extra></extra>')
-            fig.update_layout(**PL, height=330,
+                color_continuous_scale=[[0, '#ef4444'], [0.5, '#f0f4ff'], [1, '#10b981']],
+                hover_data={'Revenue_B': ':.1f', 'NetIncome_B': ':.1f'}
+            )
+            fig.update_traces(
+                textfont_size=13, textfont_color='#1e293b',
+                hovertemplate='<b>%{label}</b><br>Revenue: $%{value:.1f}B<extra></extra>'
+            )
+            fig.update_layout(
+                **PL, height=330,
                 title=dict(text=f"Revenue Treemap {t_yr}", font=dict(size=13, color='#334155')),
-                coloraxis_showscale=False)
+                coloraxis_showscale=False
+            )
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
     with c2:
         emp_sl, e_yr = get_latest_slice(ann_df, sel_companies)
         emp_sl = emp_sl.copy()
-        emp_sl['RevPerEmp'] = (emp_sl.Revenue_B * 1e9 / (emp_sl.Employees_K * 1e3) / 1e6).round(2)
+        emp_sl['RevPerEmp'] = (
+            emp_sl.Revenue_B * 1e9 / (emp_sl.Employees_K * 1e3) / 1e6
+        ).round(2)
         emp_sl = emp_sl.sort_values('RevPerEmp')
-        fig = go.Figure(go.Bar(x=emp_sl.RevPerEmp, y=emp_sl.Company, orientation='h',
+        fig = go.Figure(go.Bar(
+            x=emp_sl.RevPerEmp, y=emp_sl.Company, orientation='h',
             marker=dict(color=[COLORS[c] for c in emp_sl.Company], line=dict(width=0)),
             text=[f"${v:.2f}M" for v in emp_sl.RevPerEmp],
-            textposition='outside', textfont=dict(size=10, color='#64748b'),
-            hovertemplate='<b>%{y}</b><br>$%{x:.2f}M per employee<extra></extra>'))
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>$%{x:.2f}M per employee<extra></extra>'
+        ))
         sf(fig, 330, legend=False).update_layout(
             title=dict(text=f"Revenue per Employee {e_yr} ($M)", font=dict(size=13, color='#334155')),
-            xaxis_title="$M per Employee")
+            xaxis_title="$M per Employee"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: STOCK PERFORMANCE
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════
+# PAGE 2 — STOCK PERFORMANCE
+# ════════════════════════════════════════════════════════════════════
 elif "Stock Performance" in page:
     st.markdown('<p class="page-title">📈 Stock Performance</p>', unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["📊  Price History", "📉  Volatility & Risk", "🎯  Return Analysis"])
+    tab1, tab2, tab3 = st.tabs(["📊 Price History", "📉 Volatility & Risk", "🎯 Return Analysis"])
 
     with tab1:
         co1 = st.selectbox("Company", sel_companies, key='sp1')
@@ -553,23 +567,37 @@ elif "Stock Performance" in page:
         sub['Upper'] = sub.Price.rolling(20).mean() + 2 * sub.Price.rolling(20).std()
         sub['Lower'] = sub.Price.rolling(20).mean() - 2 * sub.Price.rolling(20).std()
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sub.Date, y=sub.Upper, name='BB Upper',
-            line=dict(color='rgba(79,70,229,0.15)', width=1, dash='dot'), showlegend=False))
-        fig.add_trace(go.Scatter(x=sub.Date, y=sub.Lower, name='BB Lower', fill='tonexty',
+        fig.add_trace(go.Scatter(
+            x=sub.Date, y=sub.Upper, name='BB Upper',
+            line=dict(color='rgba(79,70,229,0.15)', width=1, dash='dot'), showlegend=False
+        ))
+        fig.add_trace(go.Scatter(
+            x=sub.Date, y=sub.Lower, name='BB Lower', fill='tonexty',
             fillcolor='rgba(79,70,229,0.05)',
-            line=dict(color='rgba(79,70,229,0.15)', width=1, dash='dot'), showlegend=False))
-        fig.add_trace(go.Scatter(x=sub.Date, y=sub.Price, name='Price',
+            line=dict(color='rgba(79,70,229,0.15)', width=1, dash='dot'), showlegend=False
+        ))
+        fig.add_trace(go.Scatter(
+            x=sub.Date, y=sub.Price, name='Price',
             line=dict(color=COLORS[co1], width=2.5),
-            hovertemplate='<b>'+co1+'</b><br>%{x|%b %d,%Y}<br>$%{y:.2f}<extra></extra>'))
-        fig.add_trace(go.Scatter(x=sub.Date, y=sub.MA50, name='MA50',
-            line=dict(color='#f59e0b', width=1.5, dash='dot')))
-        fig.add_trace(go.Scatter(x=sub.Date, y=sub.MA200, name='MA200',
-            line=dict(color='#8b5cf6', width=1.5, dash='dash')))
+            hovertemplate='<b>' + co1 + '</b><br>%{x|%b %d, %Y}<br>$%{y:.2f}<extra></extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=sub.Date, y=sub.MA50, name='MA50',
+            line=dict(color='#f59e0b', width=1.5, dash='dot')
+        ))
+        fig.add_trace(go.Scatter(
+            x=sub.Date, y=sub.MA200, name='MA200',
+            line=dict(color='#8b5cf6', width=1.5, dash='dash')
+        ))
         sf(fig, 420).update_layout(
             title=dict(text=f"{co1} — Price + Bollinger Bands + MAs", font=dict(size=13, color='#334155')),
-            yaxis_title="Price (USD)")
+            yaxis_title="Price (USD)"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        fig2 = go.Figure(go.Bar(x=sub.Date, y=sub.Volume_M, marker_color=COLORS[co1], opacity=0.35, name='Volume'))
+        fig2 = go.Figure(go.Bar(
+            x=sub.Date, y=sub.Volume_M,
+            marker_color=COLORS[co1], opacity=0.35, name='Volume'
+        ))
         sf(fig2, 120, legend=False).update_layout(yaxis_title="Volume (M)", margin=dict(t=10))
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
@@ -577,114 +605,493 @@ elif "Stock Performance" in page:
         fig = go.Figure()
         for co in sel_companies:
             sub = p_f[p_f.Company == co].sort_values('Date')
-            if sub.empty: continue
+            if sub.empty:
+                continue
             vol = sub.Daily_Return.rolling(30).std()
-            fig.add_trace(go.Scatter(x=sub.Date, y=vol, name=co, mode='lines',
+            fig.add_trace(go.Scatter(
+                x=sub.Date, y=vol, name=co, mode='lines',
                 line=dict(color=COLORS[co], width=1.8),
-                hovertemplate=f'<b>{co}</b> %{{x|%b %Y}}<br>Vol: %{{y:.2f}}%<extra></extra>'))
+                hovertemplate=f'<b>{co}</b> %{{x|%b %Y}}<br>Vol: %{{y:.2f}}%<extra></extra>'
+            ))
         sf(fig, 340).update_layout(
             title=dict(text="30-Day Rolling Volatility", font=dict(size=13, color='#334155')),
-            yaxis_title="Volatility (%)")
+            yaxis_title="Volatility (%)"
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         stats = p_f.groupby('Company').agg(
-            Avg_Return=('Daily_Return','mean'), Volatility=('Daily_Return','std')
+            Avg_Return=('Daily_Return', 'mean'),
+            Volatility=('Daily_Return', 'std')
         ).reset_index()
-        total_return = p_f.groupby('Company').apply(
-            lambda g: (g.sort_values('Date').Price.iloc[-1] / g.sort_values('Date').Price.iloc[0] - 1) * 100
-        ).reset_index(name='Total_Return_Pct')
-        stats = stats.merge(total_return, on='Company')
+        total_ret = (
+            p_f.groupby('Company')
+            .apply(lambda g: (
+                g.sort_values('Date').Price.iloc[-1] /
+                g.sort_values('Date').Price.iloc[0] - 1
+            ) * 100)
+            .reset_index(name='Total_Return_Pct')
+        )
+        stats = stats.merge(total_ret, on='Company')
         fig2 = go.Figure()
         for _, row in stats.iterrows():
-            fig2.add_trace(go.Scatter(x=[row.Volatility], y=[row.Total_Return_Pct], mode='markers+text',
+            fig2.add_trace(go.Scatter(
+                x=[row.Volatility], y=[row.Total_Return_Pct], mode='markers+text',
                 name=row.Company, text=[row.Company], textposition='top center',
                 textfont=dict(size=10, color=COLORS[row.Company]),
                 marker=dict(size=20, color=COLORS[row.Company],
-                    line=dict(width=2, color='rgba(255,255,255,0.8)')),
-                hovertemplate=f'<b>{row.Company}</b><br>Vol:{row.Volatility:.2f}%<br>Return:{row.Total_Return_Pct:.0f}%<extra></extra>'))
+                            line=dict(width=2, color='rgba(255,255,255,0.8)')),
+                hovertemplate=(
+                    f'<b>{row.Company}</b><br>'
+                    f'Vol:{row.Volatility:.2f}%<br>'
+                    f'Return:{row.Total_Return_Pct:.0f}%<extra></extra>'
+                )
+            ))
         fig2.add_hline(y=0, line_dash='dot', line_color='rgba(0,0,0,0.08)')
         fig2.add_vline(x=stats.Volatility.mean(), line_dash='dot', line_color='rgba(0,0,0,0.08)')
         sf(fig2, 340).update_layout(
             title=dict(text="Risk vs Total Return", font=dict(size=13, color='#334155')),
-            xaxis_title="Daily Volatility (Std Dev %)", yaxis_title="Total Return %", showlegend=False)
+            xaxis_title="Daily Volatility (Std Dev %)",
+            yaxis_title="Total Return %",
+            showlegend=False
+        )
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
     with tab3:
         p_f2 = p_f.copy()
         p_f2['Year'] = p_f2.Date.dt.year
-        annual_ret = p_f2.groupby(['Company','Year']).apply(
-            lambda g: (g.sort_values('Date').Price.iloc[-1] / g.sort_values('Date').Price.iloc[0] - 1) * 100
-        ).reset_index(name='Annual_Return')
+        annual_ret = (
+            p_f2.groupby(['Company', 'Year'])
+            .apply(lambda g: (
+                g.sort_values('Date').Price.iloc[-1] /
+                g.sort_values('Date').Price.iloc[0] - 1
+            ) * 100)
+            .reset_index(name='Annual_Return')
+        )
         pivot = annual_ret.pivot(index='Company', columns='Year', values='Annual_Return')
         fig = go.Figure(go.Heatmap(
             z=pivot.values, x=[str(c) for c in pivot.columns], y=list(pivot.index),
-            colorscale=[[0,'#ef4444'],[0.45,'#f8fafc'],[1,'#10b981']], zmid=0,
-            text=[[f"{v:.0f}%" if not np.isnan(v) else "" for v in row] for row in pivot.values],
+            colorscale=[[0, '#ef4444'], [0.45, '#f8fafc'], [1, '#10b981']], zmid=0,
+            text=[
+                [f"{v:.0f}%" if not np.isnan(v) else "" for v in row]
+                for row in pivot.values
+            ],
             texttemplate='%{text}', textfont=dict(size=11, color='#334155'),
-            hovertemplate='<b>%{y}</b> %{x}<br>Return: %{z:.1f}%<extra></extra>'))
+            hovertemplate='<b>%{y}</b> %{x}<br>Return: %{z:.1f}%<extra></extra>'
+        ))
         sf(fig, 360, legend=False).update_layout(
-            title=dict(text="Annual Stock Return %", font=dict(size=13, color='#334155')))
+            title=dict(text="Annual Stock Return %", font=dict(size=13, color='#334155'))
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         fig2 = go.Figure()
         for co in sel_companies:
             sub = p_f[p_f.Company == co]
-            if sub.empty: continue
-            fig2.add_trace(go.Violin(x=[co]*len(sub), y=sub.Daily_Return, name=co,
+            if sub.empty:
+                continue
+            fig2.add_trace(go.Violin(
+                x=[co] * len(sub), y=sub.Daily_Return, name=co,
                 box_visible=True, meanline_visible=True,
-                fillcolor=hex_to_rgba(COLORS[co], 0.2), line_color=COLORS[co], opacity=0.85,
-                hovertemplate=f'<b>{co}</b><br>%{{y:.3f}}%<extra></extra>'))
+                fillcolor=hex_to_rgba(COLORS[co], 0.2),
+                line_color=COLORS[co], opacity=0.85,
+                hovertemplate=f'<b>{co}</b><br>%{{y:.3f}}%<extra></extra>'
+            ))
         sf(fig2, 340).update_layout(
             title=dict(text="Daily Return Distribution", font=dict(size=13, color='#334155')),
-            yaxis_title="Daily Return %")
+            yaxis_title="Daily Return %"
+        )
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: REVENUE & EARNINGS
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════
+# PAGE 3 — REVENUE & EARNINGS
+# ════════════════════════════════════════════════════════════════════
 elif "Revenue" in page:
     st.markdown('<p class="page-title">💰 Revenue &amp; Earnings</p>', unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["📊  Quarterly Deep-Dive", "📈  Growth Trends", "💎  Profitability"])
+    tab1, tab2, tab3 = st.tabs(["📊 Quarterly Deep-Dive", "📈 Growth Trends", "💎 Profitability"])
 
     with tab1:
         co2 = st.selectbox("Company", sel_companies, key='re1')
         sub = q_f[q_f.Company == co2].sort_values('Quarter').copy()
         sub['YoY'] = sub.Revenue_B.pct_change(4) * 100
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.08)
-        fig.add_trace(go.Bar(x=sub.Quarter, y=sub.Revenue_B, name='Revenue ($B)',
+        fig = make_subplots(
+            rows=2, cols=1, shared_xaxes=True,
+            row_heights=[0.65, 0.35], vertical_spacing=0.08
+        )
+        fig.add_trace(go.Bar(
+            x=sub.Quarter, y=sub.Revenue_B, name='Revenue ($B)',
             marker_color=COLORS[co2], opacity=0.85,
-            hovertemplate='%{x|%b %Y}<br>$%{y:.1f}B<extra></extra>'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sub.Quarter, y=sub.Revenue_B.rolling(4).mean(), name='4Q Avg',
-            line=dict(color='#f59e0b', width=2, dash='dot')), row=1, col=1)
-        fig.add_trace(go.Bar(x=sub.Quarter, y=sub.YoY, name='YoY %',
+            hovertemplate='%{x|%b %Y}<br>$%{y:.1f}B<extra></extra>'
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=sub.Quarter, y=sub.Revenue_B.rolling(4).mean(), name='4Q Avg',
+            line=dict(color='#f59e0b', width=2, dash='dot')
+        ), row=1, col=1)
+        fig.add_trace(go.Bar(
+            x=sub.Quarter, y=sub.YoY, name='YoY %',
             marker_color=['#10b981' if v >= 0 else '#ef4444' for v in sub.YoY.fillna(0)],
-            hovertemplate='%{x|%b %Y}<br>YoY: %{y:.1f}%<extra></extra>'), row=2, col=1)
+            hovertemplate='%{x|%b %Y}<br>YoY: %{y:.1f}%<extra></extra>'
+        ), row=2, col=1)
         sf(fig, 440).update_layout(
-            title=dict(text=f"{co2} — Quarterly Revenue + YoY Growth", font=dict(size=13, color='#334155')))
+            title=dict(text=f"{co2} — Quarterly Revenue + YoY Growth", font=dict(size=13, color='#334155'))
+        )
         fig.update_yaxes(title_text="Revenue ($B)", row=1, col=1)
         fig.update_yaxes(title_text="YoY %", row=2, col=1)
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     with tab2:
-        yr_min = int(ann_df.Year.min()); yr_max = COMMON_LATEST_YEAR
+        yr_min = int(ann_df.Year.min())
+        yr_max = COMMON_LATEST_YEAR
         cagr_rows = []
         for co in sel_companies:
-            sub = ann_df[(ann_df.Company == co) & (ann_df.Year.isin([yr_min, yr_max]))].sort_values('Year')
+            sub = ann_df[
+                (ann_df.Company == co) & (ann_df.Year.isin([yr_min, yr_max]))
+            ].sort_values('Year')
             if len(sub) == 2:
                 r0, r1 = sub.Revenue_B.iloc[0], sub.Revenue_B.iloc[1]
                 n = yr_max - yr_min
-                cagr = ((r1/r0)**(1/n) - 1) * 100 if n > 0 else 0
+                cagr = ((r1 / r0) ** (1 / n) - 1) * 100 if n > 0 else 0
                 cagr_rows.append({'Company': co, 'CAGR': round(cagr, 1)})
         cagr_df = pd.DataFrame(cagr_rows).sort_values('CAGR')
         c1, c2 = st.columns(2)
         with c1:
             if not cagr_df.empty:
-                fig = go.Figure(go.Bar(x=cagr_df.CAGR, y=cagr_df.Company, orientation='h',
+                fig = go.Figure(go.Bar(
+                    x=cagr_df.CAGR, y=cagr_df.Company, orientation='h',
                     marker=dict(color=[COLORS[c] for c in cagr_df.Company], line=dict(width=0)),
                     text=[f"{v:.1f}%" for v in cagr_df.CAGR],
-                    textposition='outside', textfont=dict(size=11, color='#64748b'),
-                    hovertemplate='<b>%{y}</b><br>CAGR: %{x:.1f}%<extra></extra>'))
+                    textposition='outside',
+                    hovertemplate='<b>%{y}</b><br>CAGR: %{x:.1f}%<extra></extra>'
+                ))
                 sf(fig, 340, legend=False).update_layout(
                     title=dict(text=f"Revenue CAGR {yr_min}–{yr_max}", font=dict(size=13, color='#334155')),
-   
+                    xaxis_title="CAGR %"
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        with c2:
+            rev_pivot = ann_f.pivot(index='Year', columns='Company', values='Revenue_B').fillna(0)
+            fig = go.Figure()
+            for co in [c for c in sel_companies if c in rev_pivot.columns]:
+                fig.add_trace(go.Scatter(
+                    x=rev_pivot.index, y=rev_pivot[co], name=co, mode='lines+markers',
+                    line=dict(color=COLORS[co], width=2.5),
+                    hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'
+                ))
+            sf(fig, 340).update_layout(
+                title=dict(text="Annual Revenue Trend ($B)", font=dict(size=13, color='#334155')),
+                yaxis_title="Revenue ($B)"
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    with tab3:
+        prof_sl, p_yr = get_latest_slice(ann_df, sel_companies)
+        c1, c2 = st.columns(2)
+        with c1:
+            fig = go.Figure()
+            for co in sel_companies:
+                sub = ann_f[ann_f.Company == co].sort_values('Year')
+                if sub.empty:
+                    continue
+                fig.add_trace(go.Scatter(
+                    x=sub.Year, y=(sub.NetIncome_B / sub.Revenue_B * 100),
+                    name=co, mode='lines+markers',
+                    line=dict(color=COLORS[co], width=2),
+                    hovertemplate=f'<b>{co}</b> %{{x}}<br>%{{y:.1f}}%<extra></extra>'
+                ))
+            sf(fig, 340).update_layout(
+                title=dict(text="Net Margin Trend (%)", font=dict(size=13, color='#334155')),
+                yaxis_title="Net Margin %"
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        with c2:
+            if not prof_sl.empty:
+                fig = go.Figure(go.Scatter(
+                    x=prof_sl.Revenue_B, y=prof_sl.NetIncome_B,
+                    mode='markers+text', text=prof_sl.Company,
+                    textposition='top center',
+                    marker=dict(
+                        size=prof_sl.MarketCap_B / 50,
+                        color=[COLORS[c] for c in prof_sl.Company],
+                        line=dict(width=2, color='white')
+                    ),
+                    hovertemplate='<b>%{text}</b><br>Rev: $%{x:.1f}B<br>NI: $%{y:.1f}B<extra></extra>'
+                ))
+                sf(fig, 340, legend=False).update_layout(
+                    title=dict(text=f"Revenue vs Net Income {p_yr}", font=dict(size=13, color='#334155')),
+                    xaxis_title="Revenue ($B)", yaxis_title="Net Income ($B)"
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 4 — COMPETITIVE ANALYSIS
+# ════════════════════════════════════════════════════════════════════
+elif "Competitive" in page:
+    st.markdown('<p class="page-title">🏆 Competitive Analysis</p>', unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["📊 Benchmarks", "🕸 Radar Chart"])
+
+    with tab1:
+        latest_sl, l_yr = get_latest_slice(ann_df, sel_companies)
+        metrics = ['Revenue_B', 'NetIncome_B', 'MarketCap_B', 'Employees_K']
+        metric_labels = ['Revenue ($B)', 'Net Income ($B)', 'Market Cap ($B)', 'Employees (K)']
+        for metric, label in zip(metrics, metric_labels):
+            if metric not in latest_sl.columns:
+                continue
+            srt = latest_sl[['Company', metric]].dropna().sort_values(metric, ascending=False)
+            fig = go.Figure(go.Bar(
+                x=srt.Company, y=srt[metric],
+                marker_color=[COLORS[c] for c in srt.Company],
+                text=[f"{v:.1f}" for v in srt[metric]],
+                textposition='outside',
+                hovertemplate=f'<b>%{{x}}</b><br>{label}: %{{y:.1f}}<extra></extra>'
+            ))
+            sf(fig, 260, legend=False).update_layout(
+                title=dict(text=f"{label} — {l_yr}", font=dict(size=13, color='#334155')),
+                yaxis_title=label
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    with tab2:
+        radar_sl, r_yr = get_latest_slice(ann_df, sel_companies)
+        radar_metrics = ['Revenue_B', 'NetIncome_B', 'MarketCap_B']
+        if all(m in radar_sl.columns for m in radar_metrics):
+            norm = radar_sl.copy()
+            for m in radar_metrics:
+                mn, mx = norm[m].min(), norm[m].max()
+                norm[m] = (norm[m] - mn) / (mx - mn + 1e-9) * 100
+            categories = ['Revenue', 'Net Income', 'Market Cap', 'Revenue']
+            fig = go.Figure()
+            for co in sel_companies:
+                row = norm[norm.Company == co]
+                if row.empty:
+                    continue
+                vals = [row.Revenue_B.values[0], row.NetIncome_B.values[0],
+                        row.MarketCap_B.values[0], row.Revenue_B.values[0]]
+                fig.add_trace(go.Scatterpolar(
+                    r=vals, theta=categories, name=co, fill='toself',
+                    line=dict(color=COLORS[co], width=2),
+                    fillcolor=hex_to_rgba(COLORS[co], 0.08)
+                ))
+            sf(fig, 420).update_layout(
+                title=dict(text=f"Competitive Radar {r_yr}", font=dict(size=13, color='#334155')),
+                polar=dict(
+                    radialaxis=dict(visible=True, range=[0, 100], gridcolor='rgba(0,0,0,0.06)'),
+                    bgcolor='rgba(0,0,0,0)'
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 5 — DEEP ANALYTICS
+# ════════════════════════════════════════════════════════════════════
+elif "Deep" in page:
+    st.markdown('<p class="page-title">🔬 Deep Analytics</p>', unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["📈 Correlation Matrix", "📊 Regression"])
+
+    with tab1:
+        if not ann_f.empty:
+            pivot_rev = ann_f.pivot(index='Year', columns='Company', values='Revenue_B').fillna(method='ffill')
+            corr = pivot_rev.corr()
+            fig = go.Figure(go.Heatmap(
+                z=corr.values,
+                x=list(corr.columns), y=list(corr.index),
+                colorscale=[[0, '#ef4444'], [0.5, '#f8fafc'], [1, '#10b981']],
+                zmid=0, zmin=-1, zmax=1,
+                text=[[f"{v:.2f}" for v in row] for row in corr.values],
+                texttemplate='%{text}',
+                textfont=dict(size=10),
+                hovertemplate='%{y} × %{x}<br>r = %{z:.2f}<extra></extra>'
+            ))
+            sf(fig, 420, legend=False).update_layout(
+                title=dict(text="Revenue Correlation Matrix", font=dict(size=13, color='#334155'))
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Not enough data for correlation.")
+
+    with tab2:
+        co_reg = st.selectbox("Company", sel_companies, key='reg1')
+        sub = ann_f[ann_f.Company == co_reg].sort_values('Year').dropna(subset=['Revenue_B'])
+        if len(sub) >= 3:
+            slope, intercept, r, p_val, se = scipy_stats.linregress(sub.Year, sub.Revenue_B)
+            y_pred = intercept + slope * sub.Year
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=sub.Year, y=sub.Revenue_B, name='Actual',
+                mode='markers', marker=dict(size=10, color=COLORS[co_reg])
+            ))
+            fig.add_trace(go.Scatter(
+                x=sub.Year, y=y_pred, name=f'Trend (r²={r**2:.2f})',
+                mode='lines', line=dict(color='#f59e0b', width=2, dash='dot')
+            ))
+            sf(fig, 380).update_layout(
+                title=dict(
+                    text=f"{co_reg} Revenue Regression (slope={slope:.1f}B/yr)",
+                    font=dict(size=13, color='#334155')
+                ),
+                xaxis_title="Year", yaxis_title="Revenue ($B)"
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Need at least 3 years of data for regression.")
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 6 — AI INSIGHT ENGINE
+# ════════════════════════════════════════════════════════════════════
+elif "AI" in page:
+    st.markdown('<p class="page-title">🤖 AI Insight Engine</p>', unsafe_allow_html=True)
+
+    latest_sl, l_yr = get_latest_slice(ann_df, sel_companies)
+
+    def make_insight(title, body, color="var(--primary)"):
+        st.markdown(
+            f'<div class="insight-card" style="border-left-color:{color};">'
+            f'<div class="insight-title">{title}</div>'
+            f'<div class="insight-body">{body}</div></div>',
+            unsafe_allow_html=True
+        )
+
+    sec("Automated Market Intelligence", f"FY {l_yr}")
+
+    if not latest_sl.empty:
+        top_rev = latest_sl.loc[latest_sl.Revenue_B.idxmax()]
+        top_mc  = latest_sl.loc[latest_sl.MarketCap_B.idxmax()]
+        latest_sl['Margin'] = latest_sl.NetIncome_B / latest_sl.Revenue_B * 100
+        top_margin = latest_sl.loc[latest_sl.Margin.idxmax()]
+        lowest_m   = latest_sl.loc[latest_sl.Margin.idxmin()]
+
+        make_insight(
+            f"👑 Revenue Leader: {top_rev.Company}",
+            f"{top_rev.Company} leads with <b>${top_rev.Revenue_B:.1f}B</b> in revenue for {l_yr}, "
+            f"representing dominance in its core business segments.",
+            "#4f46e5"
+        )
+        make_insight(
+            f"🏆 Market Cap Champion: {top_mc.Company}",
+            f"{top_mc.Company} commands the highest market cap at "
+            f"<b>${top_mc.MarketCap_B:,.0f}B</b> — reflecting investor confidence and growth expectations.",
+            "#06b6d4"
+        )
+        make_insight(
+            f"💎 Profitability Star: {top_margin.Company}",
+            f"{top_margin.Company} achieves the highest net margin at "
+            f"<b>{top_margin.Margin:.1f}%</b>, showcasing exceptional operational efficiency.",
+            "#10b981"
+        )
+        make_insight(
+            f"⚠️ Margin Watch: {lowest_m.Company}",
+            f"{lowest_m.Company} carries the lowest net margin at "
+            f"<b>{lowest_m.Margin:.1f}%</b> — worth monitoring for profitability improvement signals.",
+            "#f97316"
+        )
+
+    # NVIDIA AI story
+    nvda = ann_f[ann_f.Company == 'NVIDIA'].sort_values('Year')
+    if len(nvda) >= 2:
+        rev_growth = (
+            nvda.Revenue_B.iloc[-1] / nvda.Revenue_B.iloc[-2] - 1
+        ) * 100 if nvda.Revenue_B.iloc[-2] > 0 else 0
+        make_insight(
+            "⚡ NVIDIA AI Boom",
+            f"NVIDIA's revenue grew <b>{rev_growth:.0f}%</b> YoY, driven by explosive AI chip demand. "
+            f"FY{l_yr} revenue reached <b>${nvda.Revenue_B.iloc[-1]:.1f}B</b>.",
+            "#76b900"
+        )
+
+    sec("Data Table", f"FY {l_yr}")
+    if not latest_sl.empty:
+        display_cols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B', 'Employees_K']
+                        if c in latest_sl.columns]
+        st.dataframe(
+            latest_sl[display_cols].set_index('Company').style.format("{:.1f}"),
+            use_container_width=True
+        )
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 7 — LIVE DASHBOARD
+# ════════════════════════════════════════════════════════════════════
+elif "Live" in page:
+    st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
+
+    if _autorefresh_ok:
+        st_autorefresh(interval=60000, key="live_refresh")
+
+    if not _live_ok:
+        st.warning(
+            "⚠️ `live_data.py` not found. "
+            "Install yfinance and create live_data.py to enable live prices."
+        )
+    else:
+        sec("Live Prices", datetime.now().strftime("%H:%M:%S"))
+
+        # Try to get live prices for all companies
+        try:
+            live_prices = get_multi_live_prices()
+        except Exception:
+            live_prices = {}
+
+        if live_prices:
+            cols = st.columns(4)
+            items = list(live_prices.items())
+            for i, (company, info) in enumerate(items):
+                price  = info.get('price', 0)
+                change = info.get('change_pct', 0)
+                badge  = 'up' if change >= 0 else 'down'
+                arrow  = '↑' if change >= 0 else '↓'
+                with cols[i % 4]:
+                    st.markdown(
+                        f'<div class="kpi">'
+                        f'<div class="kpi-stripe {"green" if change >= 0 else ""}"></div>'
+                        f'<div class="kpi-label">{company}</div>'
+                        f'<div class="kpi-val" style="font-size:1.6rem;">${price:,.2f}</div>'
+                        f'<div class="kpi-sub">Today</div>'
+                        f'<div class="kpi-badge {badge}">{arrow} {abs(change):.2f}%</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.info("Live price feed unavailable. Check your internet connection or yfinance quota.")
+
+        # Intraday charts
+        sec("Intraday Charts", "TODAY")
+        intraday_co = st.selectbox("Select Company", sel_companies, key='ld1')
+        try:
+            intraday_df = get_intraday_data(intraday_co)
+            if intraday_df is not None and not intraday_df.empty:
+                fig = go.Figure()
+                color = COLORS.get(intraday_co, '#4f46e5')
+                fig.add_trace(go.Scatter(
+                    x=intraday_df.index if intraday_df.index.name == 'Datetime' else intraday_df.get('Datetime', intraday_df.index),
+                    y=intraday_df['Close'] if 'Close' in intraday_df.columns else intraday_df.iloc[:, 0],
+                    name=intraday_co, mode='lines',
+                    line=dict(color=color, width=2),
+                    fill='tozeroy', fillcolor=hex_to_rgba(color, 0.07),
+                    hovertemplate='%{x}<br>$%{y:.2f}<extra></extra>'
+                ))
+                sf(fig, 340, legend=False).update_layout(
+                    title=dict(
+                        text=f"{intraday_co} — Intraday Price",
+                        font=dict(size=13, color='#334155')
+                    ),
+                    yaxis_title="Price (USD)"
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info(f"No intraday data available for {intraday_co} right now.")
+        except Exception as e:
+            st.warning(f"Could not load intraday data for {intraday_co}: {e}")
+
+        # Fundamentals table
+        if not fund_df.empty:
+            sec("Live Fundamentals", "yfinance TTM")
+            disp = fund_df[fund_df.Company.isin(sel_companies)].copy()
+            display_cols = [c for c in [
+                'Company', 'marketCap_B', 'revenue_B', 'netIncome_B',
+                'peRatio', 'eps', 'dividendYield'
+            ] if c in disp.columns]
+            st.dataframe(
+                disp[display_cols].set_index('Company'),
+                use_container_width=True
+            )
