@@ -5,8 +5,9 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import pytz
 
-# ── Company registry ────────────────────────────────────────────────────────────────
+# ── Company registry ──────────────────────────────────────────────────────────
 COMPANIES = {
     "AAPL":  "Apple",
     "MSFT":  "Microsoft",
@@ -32,27 +33,52 @@ TICKERS = list(COMPANIES.keys())
 
 
 def _strip_tz(index):
-    """Safely strip timezone from a DatetimeIndex (tz-aware or tz-naive)."""
+    """Safely strip timezone from a DatetimeIndex."""
     if hasattr(index, "tz") and index.tz is not None:
         return index.tz_convert("UTC").tz_localize(None)
     return index
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 1. LIVE PRICE  (Live Dashboard KPI tiles + price table)
-# ────────────────────────────────────────────────────────────────────────────
+def is_market_open() -> bool:
+    """
+    Returns True if US stock market is currently open (Mon-Fri 09:30-16:00 ET).
+    """
+    try:
+        et = pytz.timezone("America/New_York")
+        now_et = datetime.now(et)
+        if now_et.weekday() >= 5:          # Saturday=5, Sunday=6
+            return False
+        t = now_et.time()
+        from datetime import time as dtime
+        return dtime(9, 30) <= t <= dtime(16, 0)
+    except Exception:
+        return False
+
+
+def get_smart_period_interval(user_period: str, user_interval: str):
+    """
+    When market is closed and user picks '1d', automatically upgrades to '5d'
+    so the chart always shows the last full session instead of being empty.
+    Returns (period, interval, market_open: bool)
+    """
+    open_ = is_market_open()
+    period   = user_period
+    interval = user_interval
+    if not open_ and user_period == "1d":
+        period = "5d"
+    return period, interval, open_
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. LIVE PRICE
+# ─────────────────────────────────────────────────────────────────────────────
 def get_live_price(ticker: str):
     """
     Returns (price, change_pct, volume).
-    Source of truth: yf.Ticker.info — currentPrice / regularMarketPrice is the
-    most accurate real-time price yfinance exposes (15-min delayed during hours,
-    last close outside hours). change_pct uses regularMarketChangePercent directly
-    so it always matches what you see on Yahoo Finance.
+    Uses yf.Ticker.info for accuracy — currentPrice matches Yahoo Finance exactly.
     """
     try:
         info = yf.Ticker(ticker).info
-
-        # — Price: prefer currentPrice, fall back to regularMarketPrice, then ask/bid
         price = (
             info.get("currentPrice")
             or info.get("regularMarketPrice")
@@ -63,20 +89,15 @@ def get_live_price(ticker: str):
             return None, None, None
         price = round(float(price), 2)
 
-        # — Change %: Yahoo pre-computes this correctly (vs prev official close)
         change_pct = info.get("regularMarketChangePercent")
         if change_pct is not None:
             change_pct = round(float(change_pct), 2)
         else:
-            # Fallback: compute from regularMarketPreviousClose
             prev = info.get("regularMarketPreviousClose") or info.get("previousClose")
             change_pct = round((price - prev) / prev * 100, 2) if prev else 0.0
 
-        # — Volume: regularMarketVolume is the clean day total
         volume = int(info.get("regularMarketVolume") or info.get("volume") or 0)
-
         return price, change_pct, volume
-
     except Exception:
         return None, None, None
 
@@ -95,29 +116,37 @@ def get_multi_live_prices(tickers: list) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 2. INTRADAY DATA  (Live Dashboard candlestick chart)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. INTRADAY DATA
+# ─────────────────────────────────────────────────────────────────────────────
 def get_intraday_data(ticker: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
     """
-    Fetches OHLCV intraday bars.
-    Falls back progressively: 1d→5d→daily if market is closed or data is thin.
-    Always strips timezone from index so Plotly doesn’t throw tz errors.
+    Fetches OHLCV bars.
+    - Automatically upgrades period '1d' → '5d' when market is closed.
+    - Uses prepost=True to include pre/after-hours bars.
+    - Strips timezone from index so Plotly never throws tz errors.
+    - Falls back progressively if data is thin.
     """
     try:
-        t = yf.Ticker(ticker)
-        df = t.history(period=period, interval=interval, auto_adjust=True)
+        # Smart period upgrade when market is closed
+        period, interval, market_open = get_smart_period_interval(period, interval)
 
+        t  = yf.Ticker(ticker)
+        df = t.history(period=period, interval=interval,
+                       auto_adjust=True, prepost=True)
+
+        # If still thin, try without prepost, then fall back to daily
         if df.empty or len(df) < 3:
-            if period == "1d":
-                df = t.history(period="5d", interval=interval, auto_adjust=True)
-            if df.empty or len(df) < 3:
-                df = t.history(period="5d", interval="1d", auto_adjust=True)
+            df = t.history(period=period, interval=interval, auto_adjust=True)
+        if df.empty or len(df) < 3:
+            df = t.history(period="5d", interval="1d", auto_adjust=True)
 
         if df.empty:
             return pd.DataFrame()
 
+        # Strip timezone
         df.index = _strip_tz(df.index)
+
         keep = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
         df = df[keep].copy().dropna(subset=["Close"])
         return df
@@ -126,9 +155,9 @@ def get_intraday_data(ticker: str, period: str = "1d", interval: str = "5m") -> 
         return pd.DataFrame()
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 3. LIVE FUNDAMENTALS  (Command Center KPIs, Competitive radar)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. LIVE FUNDAMENTALS
+# ─────────────────────────────────────────────────────────────────────────────
 def get_live_fundamentals(ticker: str) -> dict:
     try:
         info = yf.Ticker(ticker).info
@@ -165,22 +194,16 @@ def get_all_fundamentals() -> pd.DataFrame:
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 4. LIVE PRICE HISTORY  (Stock Performance page + Deep Analytics)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. LIVE PRICE HISTORY
+# ─────────────────────────────────────────────────────────────────────────────
 def get_price_history(ticker: str, period: str = "5y", interval: str = "1d") -> pd.DataFrame:
-    """
-    Returns daily OHLCV + Price, Volume_M, Daily_Return, Company columns.
-    Matches schema of stock_prices.csv.
-    """
     try:
         df = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
         if df.empty:
             return pd.DataFrame()
 
-        # — KEY FIX: tz-aware index must be converted first, THEN stripped
         df.index = _strip_tz(df.index)
-
         df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
         df["Daily_Return"] = df["Close"].pct_change() * 100
         df["Company"]      = COMPANIES[ticker]
@@ -188,13 +211,11 @@ def get_price_history(ticker: str, period: str = "5y", interval: str = "1d") -> 
         df["Volume_M"]     = (df["Volume"] / 1e6).round(2)
 
         df = df.reset_index()
-        # Normalise index column name to 'Date' regardless of yfinance version
         first_col = df.columns[0]
         if first_col != "Date":
             df = df.rename(columns={first_col: "Date"})
         df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
         return df
-
     except Exception:
         return pd.DataFrame()
 
@@ -205,9 +226,9 @@ def get_all_price_history(period: str = "5y") -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 5. LIVE QUARTERLY REVENUE  (Revenue & Earnings page)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. LIVE QUARTERLY REVENUE
+# ─────────────────────────────────────────────────────────────────────────────
 def get_quarterly_financials(ticker: str) -> pd.DataFrame:
     try:
         t  = yf.Ticker(ticker)
@@ -224,7 +245,6 @@ def get_quarterly_financials(ticker: str) -> pd.DataFrame:
                 rev_row = idx
             if ni_row is None and "net income" in il and "minority" not in il and "loss" not in il:
                 ni_row = idx
-
         if rev_row is None:
             return pd.DataFrame()
 
@@ -233,7 +253,9 @@ def get_quarterly_financials(ticker: str) -> pd.DataFrame:
             rev = qf.loc[rev_row, col]
             ni  = qf.loc[ni_row, col] if ni_row else None
             try:
-                qt = pd.Timestamp(col).tz_localize(None) if pd.Timestamp(col).tz else pd.Timestamp(col)
+                qt = pd.Timestamp(col)
+                if qt.tz:
+                    qt = qt.tz_localize(None)
             except Exception:
                 continue
             rows.append({
@@ -242,10 +264,8 @@ def get_quarterly_financials(ticker: str) -> pd.DataFrame:
                 "Revenue_B":   round(float(rev) / 1e9, 2) if pd.notna(rev) else None,
                 "NetIncome_B": round(float(ni)  / 1e9, 2) if (ni is not None and pd.notna(ni)) else None,
             })
-
         df = pd.DataFrame(rows).dropna(subset=["Revenue_B"])
         return df.sort_values("Quarter").reset_index(drop=True)
-
     except Exception:
         return pd.DataFrame()
 
@@ -257,9 +277,9 @@ def get_all_quarterly(tickers: list = None) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 6. LIVE ANNUAL METRICS  (replaces annual_metrics.csv on-the-fly)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. LIVE ANNUAL METRICS
+# ─────────────────────────────────────────────────────────────────────────────
 SECTOR_MAP = {
     "Apple":     "Hardware",
     "Microsoft": "Cloud/Software",
@@ -273,8 +293,8 @@ SECTOR_MAP = {
 
 def get_annual_financials(ticker: str) -> pd.DataFrame:
     try:
-        t    = yf.Ticker(ticker)
-        af   = getattr(t, "income_stmt", None)
+        t  = yf.Ticker(ticker)
+        af = getattr(t, "income_stmt", None)
         if af is None or (hasattr(af, "empty") and af.empty):
             af = t.financials
         if af is None or af.empty:
@@ -290,7 +310,6 @@ def get_annual_financials(ticker: str) -> pd.DataFrame:
                 rev_row = idx
             if ni_row is None and "net income" in il and "minority" not in il and "loss" not in il:
                 ni_row = idx
-
         if rev_row is None:
             return pd.DataFrame()
 
@@ -314,10 +333,8 @@ def get_annual_financials(ticker: str) -> pd.DataFrame:
                 "MarketCap_B": round(mc_now, 2),
                 "Employees_K": round(emp_now, 1),
             })
-
         df = pd.DataFrame(rows).dropna(subset=["Revenue_B"])
         return df.sort_values("Year").reset_index(drop=True)
-
     except Exception:
         return pd.DataFrame()
 
@@ -329,9 +346,9 @@ def get_all_annual(tickers: list = None) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 7. SMART MERGE  (live wins over CSV for matching keys)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. SMART MERGE
+# ─────────────────────────────────────────────────────────────────────────────
 def merge_with_csv(live_df: pd.DataFrame, csv_df: pd.DataFrame,
                    key_cols: list) -> pd.DataFrame:
     if live_df is None or (hasattr(live_df, "empty") and live_df.empty):
@@ -343,9 +360,9 @@ def merge_with_csv(live_df: pd.DataFrame, csv_df: pd.DataFrame,
     return combined.sort_values(key_cols).reset_index(drop=True)
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 8. COMPANY INFO CARD  (AI Insight Engine)
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. COMPANY INFO CARD
+# ─────────────────────────────────────────────────────────────────────────────
 def get_company_info(ticker: str) -> dict:
     try:
         info = yf.Ticker(ticker).info
