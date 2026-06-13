@@ -41,6 +41,20 @@ st.markdown("""
 .main .block-container{padding:1.4rem 2.2rem!important;max-width:100%!important;}
 #MainMenu,footer,header{visibility:hidden;}
 .stDeployButton{display:none;}
+
+/* ── FORCE SIDEBAR ALWAYS VISIBLE ── */
+[data-testid="collapsedControl"]{display:none!important;}
+[data-testid="stSidebarCollapseButton"]{display:none!important;}
+button[aria-label="Close sidebar"]{display:none!important;}
+button[aria-label="Collapse sidebar"]{display:none!important;}
+section[data-testid="stSidebar"]{
+  min-width:240px!important;
+  max-width:280px!important;
+  transform:none!important;
+  visibility:visible!important;
+  display:block!important;
+}
+
 [data-testid="stSidebar"]{
   background:linear-gradient(180deg,#4f46e5 0%,#6366f1 40%,#818cf8 100%)!important;
   border-right:none!important;box-shadow:4px 0 24px rgba(79,70,229,0.15);
@@ -341,7 +355,7 @@ with st.sidebar:
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Navigation</div>", unsafe_allow_html=True)
 
-    # Clickable nav buttons — each button sets session_state.page_idx instantly
+    # Clickable nav buttons
     for i, label in enumerate(PAGE_NAMES):
         is_active = (st.session_state.page_idx == i)
         if st.button(label, key=f"nav_{i}", type="primary" if is_active else "secondary"):
