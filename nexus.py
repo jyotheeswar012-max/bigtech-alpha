@@ -51,6 +51,31 @@ st.markdown("""
   background:rgba(255,255,255,0.15)!important;border:1px solid rgba(255,255,255,0.25)!important;
   border-radius:12px!important;color:#fff!important;
 }
+/* Nav buttons */
+[data-testid="stSidebar"] .stButton>button{
+  width:100%!important;
+  background:rgba(255,255,255,0.10)!important;
+  border:1px solid rgba(255,255,255,0.18)!important;
+  border-radius:12px!important;
+  color:#fff!important;
+  font-size:0.82rem!important;
+  font-weight:500!important;
+  padding:0.55rem 1rem!important;
+  text-align:left!important;
+  margin-bottom:0.25rem!important;
+  transition:all 0.2s!important;
+}
+[data-testid="stSidebar"] .stButton>button:hover{
+  background:rgba(255,255,255,0.22)!important;
+  border-color:rgba(255,255,255,0.4)!important;
+  transform:translateX(4px)!important;
+}
+[data-testid="stSidebar"] .stButton>button[kind="primary"]{
+  background:rgba(255,255,255,0.30)!important;
+  border-color:rgba(255,255,255,0.6)!important;
+  font-weight:700!important;
+  box-shadow:0 2px 12px rgba(0,0,0,0.15)!important;
+}
 .hero{
   position:relative;overflow:hidden;
   background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 30%,#06b6d4 70%,#10b981 100%);
@@ -127,7 +152,6 @@ COLORS = {
 }
 ALL_COMPANIES = list(COLORS.keys())
 
-# ✔ Page names — index is the single source of truth for routing
 PAGE_NAMES = [
     "🏠  Command Center",
     "📈  Stock Performance",
@@ -137,13 +161,17 @@ PAGE_NAMES = [
     "🤖  AI Insight Engine",
     "📡  Live Dashboard",
 ]
-PAGE_CC  = 0
-PAGE_SP  = 1
-PAGE_RE  = 2
-PAGE_CA  = 3
-PAGE_DA  = 4
-PAGE_AI  = 5
-PAGE_LD  = 6
+PAGE_CC = 0
+PAGE_SP = 1
+PAGE_RE = 2
+PAGE_CA = 3
+PAGE_DA = 4
+PAGE_AI = 5
+PAGE_LD = 6
+
+# Initialise session state page
+if "page_idx" not in st.session_state:
+    st.session_state.page_idx = 0
 
 
 def hex_to_rgba(h, a=0.15):
@@ -166,6 +194,10 @@ def sec(title, tag=""):
         f'<div class="sec"><div class="sec-title">{title}</div>'
         f'<div class="sec-line"></div>{t}</div>',
         unsafe_allow_html=True)
+
+
+def nav_to(idx):
+    st.session_state.page_idx = idx
 
 
 # ── OPTIONAL LIVE IMPORTS ─────────────────────────────────────────────────────
@@ -244,19 +276,19 @@ def build_merged_data():
     live_q   = load_live_quarterly()
     live_p   = load_live_prices()
 
-    ann_df   = merge_with_csv(live_ann, ann_csv, ['Company', 'Year']) if (_live_ok and not live_ann.empty) else ann_csv.copy()
+    ann_df = merge_with_csv(live_ann, ann_csv, ['Company','Year']) if (_live_ok and not live_ann.empty) else ann_csv.copy()
 
     if _live_ok and not live_q.empty:
         lq = live_q.copy(); lq['Quarter'] = pd.to_datetime(lq['Quarter'])
         cq = q_csv.copy();  cq['Quarter'] = pd.to_datetime(cq['Quarter'])
-        q_df = merge_with_csv(lq, cq, ['Company', 'Quarter'])
+        q_df = merge_with_csv(lq, cq, ['Company','Quarter'])
     else:
         q_df = q_csv.copy()
 
     if _live_ok and not live_p.empty:
         lp = live_p.copy(); lp['Date'] = pd.to_datetime(lp['Date'])
         cp = price_csv.copy(); cp['Date'] = pd.to_datetime(cp['Date'])
-        price_df = merge_with_csv(lp, cp, ['Company', 'Date'])
+        price_df = merge_with_csv(lp, cp, ['Company','Date'])
     else:
         price_df = price_csv.copy()
 
@@ -307,14 +339,14 @@ with st.sidebar:
     year_range = st.slider("Year Range", slider_min, slider_max, (slider_min, slider_max))
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Navigation</div>", unsafe_allow_html=True)
 
-    # ✔ FIX: use selectbox index — page_idx is a plain integer, no string matching bugs
-    page_idx = st.selectbox(
-        "Navigation",
-        options=list(range(len(PAGE_NAMES))),
-        format_func=lambda i: PAGE_NAMES[i],
-        key="page_idx"
-    )
+    # ✔ Clickable nav buttons — each button sets session_state.page_idx instantly
+    for i, label in enumerate(PAGE_NAMES):
+        is_active = (st.session_state.page_idx == i)
+        if st.button(label, key=f"nav_{i}", type="primary" if is_active else "secondary"):
+            nav_to(i)
+            st.rerun()
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     data_src = "yfinance LIVE" if (_live_ok and not ann_df.empty) else "CSV Fallback"
@@ -330,6 +362,8 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
+# Read active page from session state
+page_idx = st.session_state.page_idx
 
 # ── FILTERED DATA ─────────────────────────────────────────────────────────────
 ann_f = ann_df[(ann_df.Company.isin(sel_companies)) & (ann_df.Year.between(*year_range))]
@@ -344,7 +378,7 @@ def get_latest_slice(df, companies, fallback_year=None):
 
 
 # ── TICKER TAPE ───────────────────────────────────────────────────────────────
-ticker_syms = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX"]
+ticker_syms = ["AAPL","MSFT","GOOGL","AMZN","META","NVDA","TSLA","NFLX"]
 ticker_html = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in ticker_syms * 2])
 st.markdown(
     f'<div class="ticker-wrap"><div class="ticker-inner">{ticker_html} &nbsp;&nbsp; {ticker_html}</div></div>',
