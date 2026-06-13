@@ -540,23 +540,33 @@ elif "Revenue" in page:
         cagr_df = pd.DataFrame(cagr_rows).sort_values('CAGR')
         c1, c2 = st.columns(2)
         with c1:
+            # ── LEFT COLUMN: Stacked Area Chart (Revenue over years, all companies) ──
+            fig_area = go.Figure()
+            for co in sel_companies:
+                sub2 = ann_f[ann_f.Company == co].sort_values('Year')
+                if sub2.empty: continue
+                fig_area.add_trace(go.Scatter(
+                    x=sub2.Year, y=sub2.Revenue_B, name=co,
+                    mode='lines', stackgroup='one',
+                    fillcolor=hex_to_rgba(COLORS[co], 0.33),
+                    line=dict(color=COLORS[co], width=1.5),
+                    hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'
+                ))
+            sf(fig_area, 340).update_layout(
+                title=dict(text="Stacked Revenue by Company ($B)", font=dict(size=12, color='#7a92bb')),
+                yaxis_title="Revenue ($B)")
+            st.plotly_chart(fig_area, use_container_width=True, config={'displayModeBar': False})
+        with c2:
+            # ── RIGHT COLUMN: Revenue CAGR Bar Chart ──
             if not cagr_df.empty:
                 fig = go.Figure(go.Bar(x=cagr_df.CAGR, y=cagr_df.Company, orientation='h',
                     marker=dict(color=[COLORS[c] for c in cagr_df.Company], line=dict(width=0)),
                     text=[f"{v:.1f}%" for v in cagr_df.CAGR], textposition='outside', textfont=dict(size=11, color='#7a92bb'),
                     hovertemplate='<b>%{y}</b><br>CAGR: %{x:.1f}%<extra></extra>'))
-                sf(fig, 340, legend=False).update_layout(title=dict(text=f"Revenue CAGR {yr_min}–{yr_max}", font=dict(size=12, color='#7a92bb')), xaxis_title="CAGR %")
+                sf(fig, 340, legend=False).update_layout(
+                    title=dict(text=f"Revenue CAGR {yr_min}–{yr_max}", font=dict(size=12, color='#7a92bb')),
+                    xaxis_title="CAGR %")
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        with c2:
-            fig2 = go.Figure()
-            for co in sel_companies:
-                sub2 = ann_f[ann_f.Company==co].sort_values('Year')
-                if sub2.empty: continue
-                fig2.add_trace(go.Scatter(x=sub2.Year, y=sub2.Revenue_B, name=co, mode='lines+markers',
-                    line=dict(color=COLORS[co], width=2),
-                    hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'))
-            sf(fig2, 340).update_layout(title=dict(text="Annual Revenue Trend ($B)", font=dict(size=12, color='#7a92bb')), yaxis_title="Revenue ($B)")
-            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
     with tab3:
         c1, c2 = st.columns(2)
