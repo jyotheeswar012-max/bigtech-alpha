@@ -517,7 +517,7 @@ st.markdown("""
 }
 
 /* ── SIDEBAR LOGO ────────────────────────────────────────────────── */
-.logo-wrap { padding: 1.6rem 0 1.8rem; }
+.logo-wrap { padding: 1.6rem 0 1.2rem; }
 .logo-text {
   font-family: 'Outfit', sans-serif;
   font-size: 1.6rem;
@@ -710,6 +710,8 @@ COMMON_LATEST_YEAR = best_common_year(ann_df)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+
+    # ── LOGO ──────────────────────────────────────────────────────────────────
     st.markdown("""
     <div class="logo-wrap">
       <div style="font-size:2rem;margin-bottom:0.35rem;">🚀</div>
@@ -723,6 +725,22 @@ with st.sidebar:
     <div class="h-divider"></div>
     """, unsafe_allow_html=True)
 
+    # ── FILTERS FIRST (top of sidebar) ────────────────────────────────────────
+    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">🏢 Companies</div>', unsafe_allow_html=True)
+    sel_companies = st.multiselect("", ALL_COMPANIES, default=ALL_COMPANIES, label_visibility="hidden")
+    if not sel_companies:
+        sel_companies = ALL_COMPANIES
+
+    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">📅 Year Range</div>', unsafe_allow_html=True)
+    slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
+    slider_max = COMMON_LATEST_YEAR
+    year_range = st.slider("", slider_min, slider_max, (slider_min, slider_max), label_visibility="hidden")
+
+    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
+
+    # ── PAGE NAVIGATION (below filters) ───────────────────────────────────────
+    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">🗂 Navigation</div>', unsafe_allow_html=True)
     page = st.selectbox("", [
         "🏠  Command Center",
         "📈  Stock Performance",
@@ -733,17 +751,7 @@ with st.sidebar:
         "📡  Live Dashboard",
     ], label_visibility="hidden")
 
-    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">Companies</div>', unsafe_allow_html=True)
-    sel_companies = st.multiselect("", ALL_COMPANIES, default=ALL_COMPANIES, label_visibility="hidden")
-    if not sel_companies: sel_companies = ALL_COMPANIES
-
-    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;opacity:0.55;margin-bottom:0.5rem;">Year Range</div>', unsafe_allow_html=True)
-    slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
-    slider_max = COMMON_LATEST_YEAR
-    year_range = st.slider("", slider_min, slider_max, (slider_min, slider_max), label_visibility="hidden")
-
+    # ── STATUS INFO ────────────────────────────────────────────────────────────
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     data_src = "yfinance LIVE" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     companies_in_latest = ann_df[ann_df.Year == COMMON_LATEST_YEAR]['Company'].nunique()
@@ -1420,92 +1428,4 @@ elif "Live Dashboard" in page:
             col.markdown(f"""
             <div class="kpi" style="margin-bottom:0.8rem;">
               <div class="kpi-stripe" style="background:linear-gradient(90deg,{color},{COLORS.get(name,'#4f46e5')});"></div>
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div><div class="kpi-label">{name}</div>
-                  <div class="kpi-val" style="font-size:1.65rem;color:{color} !important;">${price:,.2f}</div></div>
-                <div style="text-align:right;"><div class="kpi-badge {direction}">{arrow} {abs(change):.2f}%</div>
-                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.56rem;color:var(--txt3);margin-top:0.8rem;">{ticker}</div></div>
-              </div><div class="kpi-sub">Vol: {vol_str}</div>
-            </div>""", unsafe_allow_html=True)
-        else:
-            col.markdown(f'<div class="kpi" style="margin-bottom:0.8rem;"><div class="kpi-stripe"></div><div class="kpi-label">{name} ({ticker})</div><div class="kpi-val" style="font-size:1.2rem;color:var(--txt4) !important;">—</div><div class="kpi-sub">Market closed</div></div>', unsafe_allow_html=True)
-
-    sec("Intraday Price Chart", "CANDLESTICK · TODAY")
-    live_col1, live_col2 = st.columns([3, 1])
-    with live_col2:
-        selected_name   = st.selectbox("Company", list(ticker_map.keys()), key="live_co")
-        interval_choice = st.selectbox("Interval", ["1m","5m","15m","30m","1h"], index=1, key="live_int")
-        period_choice   = st.selectbox("Period", ["1d","5d","1mo"], index=0, key="live_per")
-
-    selected_ticker = ticker_map[selected_name]
-    df_intraday = fetch_intraday(selected_ticker, period=period_choice, interval=interval_choice)
-
-    with live_col1:
-        if df_intraday is not None and not df_intraday.empty:
-            ticker_color = COMPANY_COLORS.get(selected_ticker, "#4f46e5")
-            fig = go.Figure()
-            if len(df_intraday) >= 10:
-                fig.add_trace(go.Candlestick(x=df_intraday.index,
-                    open=df_intraday['Open'], high=df_intraday['High'],
-                    low=df_intraday['Low'], close=df_intraday['Close'], name="OHLC",
-                    increasing=dict(line=dict(color='#10b981'), fillcolor='rgba(16,185,129,0.3)'),
-                    decreasing=dict(line=dict(color='#ef4444'), fillcolor='rgba(239,68,68,0.3)')))
-            else:
-                fig.add_trace(go.Scatter(x=df_intraday.index, y=df_intraday['Close'],
-                    mode='lines', line=dict(color=ticker_color, width=2.5)))
-            sf(fig, 420).update_layout(title=dict(text=f"{selected_name} ({selected_ticker}) — {interval_choice} · {period_choice}",
-                font=dict(size=13, color='#334155')), xaxis_title="Time", yaxis_title="Price (USD)", xaxis_rangeslider_visible=False)
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-            fig_vol = go.Figure(go.Bar(x=df_intraday.index, y=df_intraday['Volume'], marker_color=ticker_color, opacity=0.35))
-            sf(fig_vol, 110, legend=False).update_layout(yaxis_title="Volume", margin=dict(t=4))
-            st.plotly_chart(fig_vol, use_container_width=True, config={'displayModeBar': False})
-
-            lp = df_intraday['Close'].iloc[-1]; op = df_intraday['Open'].iloc[0]
-            dh = df_intraday['High'].max(); dl = df_intraday['Low'].min()
-            dc = (lp-op)/op*100; tv = df_intraday['Volume'].sum()
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Last Price", f"${lp:.2f}", delta=f"{dc:+.2f}%")
-            m2.metric("Day High", f"${dh:.2f}")
-            m3.metric("Day Low", f"${dl:.2f}")
-            m4.metric("Total Volume", f"{tv/1e6:.1f}M" if tv >= 1e6 else f"{tv/1e3:.0f}K")
-        else:
-            st.markdown("""
-            <div class="glass-panel" style="text-align:center;border:2px dashed var(--border2);">
-              <div style="font-size:2.8rem;margin-bottom:0.6rem;">🌙</div>
-              <div style="font-family:'Outfit',sans-serif;font-size:1.15rem;font-weight:700;color:var(--orange);">Market Closed / No Intraday Data</div>
-              <div style="color:var(--txt2);font-size:0.9rem;margin-top:0.5rem;">US markets open Mon–Fri 9:30am–4:00pm ET.<br>Try switching Period to "5d".</div>
-            </div>""", unsafe_allow_html=True)
-
-    sec("Live Price Comparison Table", "ALL COMPANIES")
-    @st.cache_data(ttl=60)
-    def fetch_all_prices():
-        rows = []
-        for name, ticker in ticker_map.items():
-            price, change, vol = get_live_price(ticker)
-            rows.append({"Company": name, "Ticker": ticker,
-                "Price (USD)": f"${price:,.2f}" if price else "—",
-                "Change %": f"{change:+.2f}%" if change is not None else "—",
-                "Volume": f"{vol/1e6:.1f}M" if vol and vol >= 1e6 else (f"{vol/1e3:.0f}K" if vol else "—"),
-                "Direction": "🟢" if (change or 0) >= 0 else "🔴"})
-        return pd.DataFrame(rows)
-    st.dataframe(fetch_all_prices().set_index("Company"), use_container_width=True, height=320)
-    st.markdown('<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.6rem;color:var(--txt3);margin-top:1rem;border-top:2px solid var(--border);padding-top:0.8rem;">📡 Live data powered by yfinance · Prices delayed up to 15 minutes</div>', unsafe_allow_html=True)
-
-
-# ── PREMIUM FOOTER ─────────────────────────────────────────────────────────────
-st.markdown("""
-<div style="margin-top:4rem;padding-top:2rem;border-top:2px solid var(--border);text-align:center;">
-  <div style="font-family:'Outfit',sans-serif;font-size:1.3rem;font-weight:900;
-    background:linear-gradient(135deg,#4f46e5,#06b6d4,#10b981);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    background-clip:text;margin-bottom:0.6rem;letter-spacing:-0.02em;">
-    MARKET NEXUS
-  </div>
-  <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--txt3);letter-spacing:0.08em;line-height:2.2;">
-    Built by Jyotheeswar Gudipalli · Manipal University Jaipur · B.Tech Data Science 2027
-    <br>Data: yfinance Live Feed · Public Earnings Reports · SEC Filings
-    <br><span style="color:var(--txt4);">v6.0 · Powered by Streamlit & Plotly</span>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+              <div style="display:flex;justify-content:space-between;align-items:f
