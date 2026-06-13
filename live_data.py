@@ -105,18 +105,24 @@ def get_live_price(ticker: str):
         return None, None, None
 
 
-def get_multi_live_prices(tickers: list) -> pd.DataFrame:
-    rows = []
+def get_multi_live_prices(tickers: list = None) -> dict:
+    """
+    FIX: tickers now optional (defaults to all companies).
+    FIX: returns dict {company_name: {price, change_pct, volume}}
+         so nexus.py can iterate as: for company, info in live_prices.items()
+    """
+    if tickers is None:
+        tickers = TICKERS
+    result = {}
     for ticker in tickers:
         price, change, vol = get_live_price(ticker)
-        rows.append({
-            "Ticker":  ticker,
-            "Company": COMPANIES.get(ticker, ticker),
-            "Price":   price,
-            "Change%": change,
-            "Volume":  vol,
-        })
-    return pd.DataFrame(rows)
+        company = COMPANIES.get(ticker, ticker)
+        result[company] = {
+            "price":      price  if price  is not None else 0.0,
+            "change_pct": change if change is not None else 0.0,
+            "volume":     vol    if vol    is not None else 0,
+        }
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -157,8 +163,12 @@ def get_live_fundamentals(ticker: str) -> dict:
             "revenue_B":     round(rev / 1e9, 2),
             "netIncome_B":   round(ni  / 1e9, 2),
             "employees_K":   round(emp / 1e3, 1),
+            # FIX: expose all columns nexus.py needs
+            "peRatio":       info.get("trailingPE"),
             "trailingPE":    info.get("trailingPE"),
             "forwardPE":     info.get("forwardPE"),
+            "eps":           info.get("trailingEps"),
+            "dividendYield": info.get("dividendYield"),
             "ps_ratio":      round(mc / rev, 2) if rev else None,
             "beta":          info.get("beta"),
             "52w_high":      info.get("fiftyTwoWeekHigh"),
@@ -263,22 +273,9 @@ def get_all_quarterly(tickers: list = None) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. LIVE ANNUAL METRICS  +  2026 TTM INJECTION
+# 6. LIVE ANNUAL METRICS  +  CURRENT YEAR TTM INJECTION
 # ─────────────────────────────────────────────────────────────────────────────
-
 def get_ttm_as_current_year(ticker: str) -> dict | None:
-    """
-    Builds a synthetic row for the CURRENT calendar year using TTM (trailing
-    twelve months) values from yf.Ticker.info.
-
-    yfinance's `totalRevenue` and `netIncomeToCommon` are always TTM figures,
-    so this row represents the most recent rolling 12 months ending today.
-    It is labelled with is_ttm=True so charts can optionally annotate it.
-
-    Returns None if the current year already exists in the annual income
-    statement (i.e. the company has already filed its annual report for this
-    year — unlikely before December but handled cleanly).
-    """
     try:
         current_year = datetime.now().year
         name = COMPANIES[ticker]
@@ -300,7 +297,7 @@ def get_ttm_as_current_year(ticker: str) -> dict | None:
             "NetIncome_B": round(float(ni)  / 1e9, 2),
             "MarketCap_B": round(float(mc)  / 1e9, 2),
             "Employees_K": round(float(emp) / 1e3, 1),
-            "is_ttm":      True,   # flag so charts can show "2026 (TTM)" label
+            "is_ttm":      True,
         }
     except Exception:
         return None
@@ -352,11 +349,6 @@ def get_annual_financials(ticker: str) -> pd.DataFrame:
         df = pd.DataFrame(rows).dropna(subset=["Revenue_B"])
         df = df.sort_values("Year").reset_index(drop=True)
 
-        # ── INJECT CURRENT YEAR (TTM) if not already present ──────────────────────
-        # yfinance income_stmt only has completed fiscal years.
-        # If today is mid-year (e.g. June 2026), the current year won't appear
-        # unless we synthesise it from TTM data.  We only inject when the
-        # current calendar year is NOT already in the DataFrame.
         current_year = datetime.now().year
         if current_year not in df["Year"].values:
             ttm_row = get_ttm_as_current_year(ticker)

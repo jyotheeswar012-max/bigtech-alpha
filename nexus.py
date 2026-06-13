@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  MARKET NEXUS — Big Tech Intelligence Platform  v6.0            ║
+║  MARKET NEXUS — Big Tech Intelligence Platform  v6.1            ║
 ║  Live data: Apple · Microsoft · Google · Amazon · Meta          ║
 ║             NVIDIA · Tesla · Netflix                             ║
 ║  Run: streamlit run nexus.py                                     ║
@@ -51,7 +51,6 @@ st.markdown("""
   background:rgba(255,255,255,0.15)!important;border:1px solid rgba(255,255,255,0.25)!important;
   border-radius:12px!important;color:#fff!important;
 }
-/* Nav buttons */
 [data-testid="stSidebar"] .stButton>button{
   width:100%!important;
   background:rgba(255,255,255,0.10)!important;
@@ -169,7 +168,7 @@ PAGE_DA = 4
 PAGE_AI = 5
 PAGE_LD = 6
 
-# Initialise session state page
+# Initialise page in session state
 if "page_idx" not in st.session_state:
     st.session_state.page_idx = 0
 
@@ -276,19 +275,19 @@ def build_merged_data():
     live_q   = load_live_quarterly()
     live_p   = load_live_prices()
 
-    ann_df = merge_with_csv(live_ann, ann_csv, ['Company','Year']) if (_live_ok and not live_ann.empty) else ann_csv.copy()
+    ann_df = merge_with_csv(live_ann, ann_csv, ['Company', 'Year']) if (_live_ok and not live_ann.empty) else ann_csv.copy()
 
     if _live_ok and not live_q.empty:
         lq = live_q.copy(); lq['Quarter'] = pd.to_datetime(lq['Quarter'])
         cq = q_csv.copy();  cq['Quarter'] = pd.to_datetime(cq['Quarter'])
-        q_df = merge_with_csv(lq, cq, ['Company','Quarter'])
+        q_df = merge_with_csv(lq, cq, ['Company', 'Quarter'])
     else:
         q_df = q_csv.copy()
 
     if _live_ok and not live_p.empty:
         lp = live_p.copy(); lp['Date'] = pd.to_datetime(lp['Date'])
         cp = price_csv.copy(); cp['Date'] = pd.to_datetime(cp['Date'])
-        price_df = merge_with_csv(lp, cp, ['Company','Date'])
+        price_df = merge_with_csv(lp, cp, ['Company', 'Date'])
     else:
         price_df = price_csv.copy()
 
@@ -324,7 +323,7 @@ with st.sidebar:
     <div class="logo-wrap">
       <div style="font-size:2rem;margin-bottom:0.35rem;">🚀</div>
       <div class="logo-text">MARKET NEXUS</div>
-      <div class="logo-sub">BIG TECH INTELLIGENCE · v6.0</div>
+      <div class="logo-sub">BIG TECH INTELLIGENCE · v6.1</div>
     </div>
     <div class="h-divider"></div>
     """, unsafe_allow_html=True)
@@ -341,7 +340,7 @@ with st.sidebar:
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Navigation</div>", unsafe_allow_html=True)
 
-    # ✔ Clickable nav buttons — each button sets session_state.page_idx instantly
+    # Clickable nav buttons — one click = instant page switch
     for i, label in enumerate(PAGE_NAMES):
         is_active = (st.session_state.page_idx == i)
         if st.button(label, key=f"nav_{i}", type="primary" if is_active else "secondary"):
@@ -362,7 +361,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# Read active page from session state
+# Active page from session state
 page_idx = st.session_state.page_idx
 
 # ── FILTERED DATA ─────────────────────────────────────────────────────────────
@@ -378,7 +377,7 @@ def get_latest_slice(df, companies, fallback_year=None):
 
 
 # ── TICKER TAPE ───────────────────────────────────────────────────────────────
-ticker_syms = ["AAPL","MSFT","GOOGL","AMZN","META","NVDA","TSLA","NFLX"]
+ticker_syms = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX"]
 ticker_html = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in ticker_syms * 2])
 st.markdown(
     f'<div class="ticker-wrap"><div class="ticker-inner">{ticker_html} &nbsp;&nbsp; {ticker_html}</div></div>',
@@ -900,15 +899,17 @@ elif page_idx == PAGE_LD:
     else:
         sec("Live Prices", datetime.now().strftime("%H:%M:%S"))
         try:
+            # FIX: get_multi_live_prices() now takes no required args and returns dict
             live_prices = get_multi_live_prices()
         except Exception:
             live_prices = {}
 
         if live_prices:
             cols = st.columns(4)
+            # FIX: iterate dict correctly — info is {price, change_pct, volume}
             for i, (company, info) in enumerate(live_prices.items()):
-                price  = info.get('price', 0)
-                change = info.get('change_pct', 0)
+                price  = info.get('price', 0) or 0
+                change = info.get('change_pct', 0) or 0
                 badge  = 'up' if change >= 0 else 'down'
                 arrow  = '↑' if change >= 0 else '↓'
                 stripe = 'green' if change >= 0 else ''
@@ -951,6 +952,7 @@ elif page_idx == PAGE_LD:
         if not fund_df.empty:
             sec("Live Fundamentals", "yfinance TTM")
             disp = fund_df[fund_df.Company.isin(sel_companies)].copy()
+            # FIX: use actual column names from get_all_fundamentals()
             dcols = [c for c in ['Company','marketCap_B','revenue_B','netIncome_B',
-                                  'peRatio','eps','dividendYield'] if c in disp.columns]
+                                  'peRatio','eps','dividendYield','beta'] if c in disp.columns]
             st.dataframe(disp[dcols].set_index('Company'), use_container_width=True)
