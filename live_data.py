@@ -31,6 +31,17 @@ COMPANY_COLORS = {
 }
 TICKERS = list(COMPANIES.keys())
 
+SECTOR_MAP = {
+    "Apple":     "Hardware",
+    "Microsoft": "Cloud/Software",
+    "Google":    "Digital Ads",
+    "Amazon":    "E-Commerce/Cloud",
+    "Meta":      "Social Media",
+    "NVIDIA":    "Semiconductors",
+    "Tesla":     "EV/Energy",
+    "Netflix":   "Streaming",
+}
+
 
 def _strip_tz(index):
     """Safely strip timezone from a DatetimeIndex."""
@@ -40,13 +51,10 @@ def _strip_tz(index):
 
 
 def is_market_open() -> bool:
-    """
-    Returns True if US stock market is currently open (Mon-Fri 09:30-16:00 ET).
-    """
     try:
         et = pytz.timezone("America/New_York")
         now_et = datetime.now(et)
-        if now_et.weekday() >= 5:          # Saturday=5, Sunday=6
+        if now_et.weekday() >= 5:
             return False
         t = now_et.time()
         from datetime import time as dtime
@@ -56,11 +64,6 @@ def is_market_open() -> bool:
 
 
 def get_smart_period_interval(user_period: str, user_interval: str):
-    """
-    When market is closed and user picks '1d', automatically upgrades to '5d'
-    so the chart always shows the last full session instead of being empty.
-    Returns (period, interval, market_open: bool)
-    """
     open_ = is_market_open()
     period   = user_period
     interval = user_interval
@@ -75,7 +78,7 @@ def get_smart_period_interval(user_period: str, user_interval: str):
 def get_live_price(ticker: str):
     """
     Returns (price, change_pct, volume).
-    Uses yf.Ticker.info for accuracy — currentPrice matches Yahoo Finance exactly.
+    Uses currentPrice from info for accuracy.
     """
     try:
         info = yf.Ticker(ticker).info
@@ -120,37 +123,21 @@ def get_multi_live_prices(tickers: list) -> pd.DataFrame:
 # 2. INTRADAY DATA
 # ─────────────────────────────────────────────────────────────────────────────
 def get_intraday_data(ticker: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
-    """
-    Fetches OHLCV bars.
-    - Automatically upgrades period '1d' → '5d' when market is closed.
-    - Uses prepost=True to include pre/after-hours bars.
-    - Strips timezone from index so Plotly never throws tz errors.
-    - Falls back progressively if data is thin.
-    """
     try:
-        # Smart period upgrade when market is closed
         period, interval, market_open = get_smart_period_interval(period, interval)
-
         t  = yf.Ticker(ticker)
         df = t.history(period=period, interval=interval,
                        auto_adjust=True, prepost=True)
-
-        # If still thin, try without prepost, then fall back to daily
         if df.empty or len(df) < 3:
             df = t.history(period=period, interval=interval, auto_adjust=True)
         if df.empty or len(df) < 3:
             df = t.history(period="5d", interval="1d", auto_adjust=True)
-
         if df.empty:
             return pd.DataFrame()
-
-        # Strip timezone
         df.index = _strip_tz(df.index)
-
         keep = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
         df = df[keep].copy().dropna(subset=["Close"])
         return df
-
     except Exception:
         return pd.DataFrame()
 
@@ -202,14 +189,12 @@ def get_price_history(ticker: str, period: str = "5y", interval: str = "1d") -> 
         df = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
         if df.empty:
             return pd.DataFrame()
-
         df.index = _strip_tz(df.index)
         df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
         df["Daily_Return"] = df["Close"].pct_change() * 100
         df["Company"]      = COMPANIES[ticker]
         df["Price"]        = df["Close"]
         df["Volume_M"]     = (df["Volume"] / 1e6).round(2)
-
         df = df.reset_index()
         first_col = df.columns[0]
         if first_col != "Date":
@@ -278,18 +263,48 @@ def get_all_quarterly(tickers: list = None) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. LIVE ANNUAL METRICS
+# 6. LIVE ANNUAL METRICS  +  2026 TTM INJECTION
 # ─────────────────────────────────────────────────────────────────────────────
-SECTOR_MAP = {
-    "Apple":     "Hardware",
-    "Microsoft": "Cloud/Software",
-    "Google":    "Digital Ads",
-    "Amazon":    "E-Commerce/Cloud",
-    "Meta":      "Social Media",
-    "NVIDIA":    "Semiconductors",
-    "Tesla":     "EV/Energy",
-    "Netflix":   "Streaming",
-}
+
+def get_ttm_as_current_year(ticker: str) -> dict | None:
+    """
+    Builds a synthetic row for the CURRENT calendar year using TTM (trailing
+    twelve months) values from yf.Ticker.info.
+
+    yfinance's `totalRevenue` and `netIncomeToCommon` are always TTM figures,
+    so this row represents the most recent rolling 12 months ending today.
+    It is labelled with is_ttm=True so charts can optionally annotate it.
+
+    Returns None if the current year already exists in the annual income
+    statement (i.e. the company has already filed its annual report for this
+    year — unlikely before December but handled cleanly).
+    """
+    try:
+        current_year = datetime.now().year
+        name = COMPANIES[ticker]
+        info = yf.Ticker(ticker).info
+
+        rev = info.get("totalRevenue")      or 0
+        ni  = info.get("netIncomeToCommon") or 0
+        mc  = info.get("marketCap")         or 0
+        emp = info.get("fullTimeEmployees") or 0
+
+        if rev == 0:
+            return None
+
+        return {
+            "Year":        current_year,
+            "Company":     name,
+            "Sector":      SECTOR_MAP.get(name, "Tech"),
+            "Revenue_B":   round(float(rev) / 1e9, 2),
+            "NetIncome_B": round(float(ni)  / 1e9, 2),
+            "MarketCap_B": round(float(mc)  / 1e9, 2),
+            "Employees_K": round(float(emp) / 1e3, 1),
+            "is_ttm":      True,   # flag so charts can show "2026 (TTM)" label
+        }
+    except Exception:
+        return None
+
 
 def get_annual_financials(ticker: str) -> pd.DataFrame:
     try:
@@ -313,8 +328,8 @@ def get_annual_financials(ticker: str) -> pd.DataFrame:
         if rev_row is None:
             return pd.DataFrame()
 
-        mc_now  = (info.get("marketCap")          or 0) / 1e9
-        emp_now = (info.get("fullTimeEmployees")  or 0) / 1e3
+        mc_now  = (info.get("marketCap")         or 0) / 1e9
+        emp_now = (info.get("fullTimeEmployees") or 0) / 1e3
 
         rows = []
         for col in af.columns:
@@ -332,9 +347,26 @@ def get_annual_financials(ticker: str) -> pd.DataFrame:
                 "NetIncome_B": round(float(ni)  / 1e9, 2) if (ni is not None and pd.notna(ni)) else None,
                 "MarketCap_B": round(mc_now, 2),
                 "Employees_K": round(emp_now, 1),
+                "is_ttm":      False,
             })
         df = pd.DataFrame(rows).dropna(subset=["Revenue_B"])
-        return df.sort_values("Year").reset_index(drop=True)
+        df = df.sort_values("Year").reset_index(drop=True)
+
+        # ── INJECT CURRENT YEAR (TTM) if not already present ──────────────────────
+        # yfinance income_stmt only has completed fiscal years.
+        # If today is mid-year (e.g. June 2026), the current year won't appear
+        # unless we synthesise it from TTM data.  We only inject when the
+        # current calendar year is NOT already in the DataFrame.
+        current_year = datetime.now().year
+        if current_year not in df["Year"].values:
+            ttm_row = get_ttm_as_current_year(ticker)
+            if ttm_row is not None:
+                df = pd.concat(
+                    [df, pd.DataFrame([ttm_row])],
+                    ignore_index=True
+                ).sort_values("Year").reset_index(drop=True)
+
+        return df
     except Exception:
         return pd.DataFrame()
 
