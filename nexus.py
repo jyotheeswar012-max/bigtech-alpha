@@ -183,7 +183,6 @@ PAGE_DA = 4
 PAGE_AI = 5
 PAGE_LD = 6
 
-# Initialise session state page
 if "page_idx" not in st.session_state:
     st.session_state.page_idx = 0
 
@@ -332,8 +331,9 @@ def best_common_year(df, all_cos=None):
 COMMON_LATEST_YEAR = best_common_year(ann_df)
 
 
-# ── SIDEBAR ───────────────────────────────────────────────────────────────────
+# ── SIDEBAR ── ORDER: Logo → Navigation → Companies → Year Range → Footer ────
 with st.sidebar:
+    # 1. LOGO
     st.markdown("""
     <div class="logo-wrap">
       <div style="font-size:2rem;margin-bottom:0.35rem;">🚀</div>
@@ -343,25 +343,29 @@ with st.sidebar:
     <div class="h-divider"></div>
     """, unsafe_allow_html=True)
 
-    sel_companies = st.multiselect("Companies", ALL_COMPANIES, default=ALL_COMPANIES)
-    if not sel_companies:
-        sel_companies = ALL_COMPANIES
-
-    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
-    slider_max = COMMON_LATEST_YEAR
-    year_range = st.slider("Year Range", slider_min, slider_max, (slider_min, slider_max))
-
-    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
+    # 2. NAVIGATION (top priority)
     st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Navigation</div>", unsafe_allow_html=True)
-
-    # Clickable nav buttons
     for i, label in enumerate(PAGE_NAMES):
         is_active = (st.session_state.page_idx == i)
         if st.button(label, key=f"nav_{i}", type="primary" if is_active else "secondary"):
             nav_to(i)
             st.rerun()
 
+    # 3. COMPANIES
+    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Filter Companies</div>", unsafe_allow_html=True)
+    sel_companies = st.multiselect("Companies", ALL_COMPANIES, default=ALL_COMPANIES, label_visibility="collapsed")
+    if not sel_companies:
+        sel_companies = ALL_COMPANIES
+
+    # 4. YEAR RANGE
+    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Year Range</div>", unsafe_allow_html=True)
+    slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
+    slider_max = COMMON_LATEST_YEAR
+    year_range = st.slider("Year Range", slider_min, slider_max, (slider_min, slider_max), label_visibility="collapsed")
+
+    # 5. FOOTER
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     data_src = "yfinance LIVE" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     price_latest = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
@@ -376,7 +380,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# Read active page from session state
+# Read active page
 page_idx = st.session_state.page_idx
 
 # ── FILTERED DATA ─────────────────────────────────────────────────────────────
