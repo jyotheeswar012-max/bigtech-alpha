@@ -253,13 +253,43 @@ def build_merged_data():
 
     if _live_ok and not live_ann.empty:
         ann_df = merge_with_csv(live_ann, ann_csv, ['Company', 'Year'])
-        # ── FIX: re-attach CSV-only columns (e.g. RD_B) that live data lacks ──
-        csv_only_cols = [c for c in ann_csv.columns if c not in ann_df.columns]
-        if csv_only_cols:
-            csv_patch = ann_csv[['Company', 'Year'] + csv_only_cols].copy()
-            csv_patch['Year'] = csv_patch['Year'].astype(int)
-            ann_df['Year'] = ann_df['Year'].astype(int)
-            ann_df = ann_df.merge(csv_patch, on=['Company', 'Year'], how='left')
+
+        # ── FIX: patch columns that exist in ann_df but are entirely NaN
+        #         because live data never provides them (e.g. RD_B).
+        #
+        #  Old (broken): csv_only_cols = [c for c in ann_csv.columns
+        #                                  if c not in ann_df.columns]
+        #  → always empty; merge_with_csv already added them as NaN via reindex.
+        #
+        #  New: find columns present in ann_csv that yfinance never fills,
+        #  detected as all-NaN in ann_df after merge, then back-fill from csv.
+        # ────────────────────────────────────────────────────────────────────
+        ann_df['Year'] = ann_df['Year'].astype(int)
+        ann_csv_typed  = ann_csv.copy()
+        ann_csv_typed['Year'] = ann_csv_typed['Year'].astype(int)
+
+        ghost_cols = [
+            c for c in ann_csv_typed.columns
+            if c not in ('Company', 'Year')
+            and c in ann_df.columns
+            and ann_df[c].isna().all()
+            and ann_csv_typed[c].notna().any()
+        ]
+
+        if ghost_cols:
+            csv_patch = ann_csv_typed[['Company', 'Year'] + ghost_cols].copy()
+            # Suffix merge so we never accidentally overwrite live columns
+            ann_df = ann_df.merge(
+                csv_patch,
+                on=['Company', 'Year'],
+                how='left',
+                suffixes=('', '_csv')
+            )
+            for col in ghost_cols:
+                csv_col = f'{col}_csv'
+                if csv_col in ann_df.columns:
+                    ann_df[col] = ann_df[col].fillna(ann_df[csv_col])
+                    ann_df.drop(columns=[csv_col], inplace=True)
     else:
         ann_df = ann_csv.copy()
 
@@ -964,7 +994,6 @@ elif page_idx == PAGE_RE:
                 c3, c4 = st.columns(2)
 
                 with c3:
-                    # Bubble: x=R&D spend, y=Net Income, size=Revenue, colour=Company
                     fig = go.Figure()
                     for co in sel_companies:
                         sub = rdf[(rdf['Company'] == co) & rdf['NetIncome_B'].notna()]
@@ -998,7 +1027,6 @@ elif page_idx == PAGE_RE:
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
                 with c4:
-                    # R&D per employee (innovation productivity)
                     fig = go.Figure()
                     for co in sel_companies:
                         sub = rdf[(rdf['Company'] == co) & rdf['RD_PerEmp_M'].notna()]
@@ -1308,106 +1336,4 @@ elif page_idx == PAGE_AI:
         if 'RD_B' in ann_f.columns and ann_f['RD_B'].notna().any():
             rd_f = ann_f[ann_f['RD_B'].notna()]
             if not rd_f.empty:
-                top_rd = rd_f.loc[rd_f['RD_B'].idxmax()]
-                rd_pct = top_rd['RD_B'] / top_rd['Revenue_B'] * 100 if top_rd['Revenue_B'] > 0 else 0
-                st.markdown(f"""
-                <div class="insight-card" style="border-left-color:#a78bfa;">
-                  <div class="insight-title">🔬 R&D Leader — {top_rd['Company']}</div>
-                  <div class="insight-body">
-                    {top_rd['Company']} invested the most in R&D at
-                    <strong>${top_rd['RD_B']:.1f}B</strong>
-                    ({rd_pct:.1f}% of revenue) in {sel_year}, signalling long-term innovation commitment.
-                  </div>
-                </div>""", unsafe_allow_html=True)
-
-        sec("Profitability Snapshot", str(sel_year))
-        snap = ann_f.copy()
-        snap['Net Margin %'] = (snap['NetIncome_B'] / snap['Revenue_B'].replace(0, np.nan) * 100).round(1)
-        display_cols_snap = ['Revenue_B', 'NetIncome_B', 'Net Margin %']
-        if 'RD_B' in snap.columns:
-            display_cols_snap.append('RD_B')
-        display_snap = snap[['Company'] + display_cols_snap].rename(columns={
-            'Revenue_B': 'Revenue ($B)', 'NetIncome_B': 'Net Income ($B)', 'RD_B': 'R&D ($B)'
-        }).set_index('Company')
-        st.dataframe(display_snap.style.format("{:.2f}"), use_container_width=True)
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 7 — LIVE DASHBOARD
-# ════════════════════════════════════════════════════════════════════
-elif page_idx == PAGE_LD:
-    st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
-
-    if _autorefresh_ok:
-        st_autorefresh(interval=30000, key="live_refresh")
-
-    if not _live_ok:
-        st.warning("Live data module (`live_data.py`) not found. Showing latest CSV data instead.")
-        sec("Latest Annual Snapshot")
-        latest_sl, lyr = get_latest_slice(ann_df, sel_companies)
-        if not latest_sl.empty:
-            st.dataframe(latest_sl.set_index('Company'), use_container_width=True)
-        else:
-            st.info("No CSV data available for the selected companies.")
-    else:
-        sec("Live Prices")
-        try:
-            live_prices = get_multi_live_prices(
-                [NAME_TO_TICKER.get(c, c) for c in sel_companies]
-            )
-            cols = st.columns(len(sel_companies))
-            for i, co in enumerate(sel_companies):
-                ticker = NAME_TO_TICKER.get(co, co)
-                price_info = live_prices.get(ticker, {})
-                price  = price_info.get('price', 0)
-                change = price_info.get('change_pct', 0)
-                with cols[i]:
-                    direction = "↑" if change >= 0 else "↓"
-                    badge_cls = "up" if change >= 0 else "down"
-                    st.markdown(f"""
-                    <div class="kpi" style="text-align:center;">
-                      <div class="kpi-stripe"></div>
-                      <div style="font-size:0.65rem;color:var(--txt3);margin-bottom:0.4rem;">{ticker}</div>
-                      <div class="kpi-val" style="font-size:1.6rem;">${price:,.2f}</div>
-                      <div class="kpi-badge {badge_cls}" style="position:relative;top:0;right:0;display:inline-block;margin-top:0.4rem;">
-                        {direction} {abs(change):.2f}%
-                      </div>
-                    </div>""", unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"Could not fetch live prices: {e}")
-
-        sec("Intraday Chart")
-        if sel_companies:
-            live_co = st.selectbox("Select Company", sel_companies, key='ld_co')
-            ticker  = NAME_TO_TICKER.get(live_co, live_co)
-            try:
-                intraday_df = get_intraday_data(ticker)
-                if not intraday_df.empty:
-                    if 'Datetime' in intraday_df.columns:
-                        x_vals = intraday_df['Datetime']
-                    else:
-                        x_vals = intraday_df.index
-                    fig = go.Figure(go.Scatter(
-                        x=x_vals, y=intraday_df['Close'],
-                        mode='lines', name=live_co,
-                        line=dict(color=COLORS.get(live_co, '#818cf8'), width=2),
-                        fill='tozeroy',
-                        fillcolor=hex_to_rgba(COLORS.get(live_co, '#818cf8'), 0.07)))
-                    sf(fig, 360, legend=False).update_layout(
-                        title=dict(text=f"{live_co} ({ticker}) — Intraday", font=dict(size=13, color='#94a3b8')),
-                        yaxis_title="Price (USD)")
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info("No intraday data available.")
-            except Exception as e:
-                st.error(f"Intraday data error: {e}")
-
-        sec("Fundamentals")
-        if not fund_df.empty:
-            fund_show = fund_df[fund_df['Company'].isin(sel_companies)].copy()
-            if not fund_show.empty:
-                st.dataframe(fund_show.set_index('Company'), use_container_width=True)
-            else:
-                st.info("No fundamentals data for selected companies.")
-        else:
-            st.info("Fundamentals not available (live_data.py required).")
+  
