@@ -123,6 +123,22 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .logo-text{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:900;color:#fff!important;}
 .logo-sub{font-size:0.55rem;color:rgba(255,255,255,0.55)!important;letter-spacing:0.16em;margin-top:0.25rem;}
 .h-divider{height:1px;background:rgba(255,255,255,0.15);margin:0.8rem 0;}
+/* ── COMPARISON TABLE ─────────────────────────────────────────── */
+.cmp-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;box-shadow:var(--shadow);}
+.cmp-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.cmp-table thead tr{background:rgba(129,140,248,0.08);border-bottom:1px solid var(--border2);}
+.cmp-table thead th{padding:0.75rem 1.1rem;text-align:left;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--txt3);font-weight:600;white-space:nowrap;}
+.cmp-table thead th:not(:first-child){text-align:right;}
+.cmp-table tbody tr{border-bottom:1px solid rgba(129,140,248,0.06);transition:background 0.15s;}
+.cmp-table tbody tr:hover{background:rgba(129,140,248,0.05);}
+.cmp-table tbody tr:last-child{border-bottom:none;}
+.cmp-table td{padding:0.72rem 1.1rem;color:var(--txt);font-family:'Inter',sans-serif;}
+.cmp-table td:not(:first-child){text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.78rem;}
+.cmp-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:middle;}
+.cmp-co{font-weight:600;color:var(--txt);display:flex;align-items:center;gap:0;}
+.badge-up{color:#34d399;font-weight:700;}
+.badge-dn{color:#f87171;font-weight:700;}
+.badge-fl{color:#fbbf24;font-weight:700;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--txt4);border-radius:3px;}
@@ -1141,6 +1157,7 @@ elif page_idx == PAGE_LD:
         try:
             prices = get_multi_live_prices()
             if prices:
+                # ── Price KPI cards ──────────────────────────────────────────
                 cols = st.columns(4)
                 for i, (company, data) in enumerate(prices.items()):
                     if company not in sel_companies:
@@ -1157,6 +1174,92 @@ elif page_idx == PAGE_LD:
                           <div class="kpi-val" style="font-size:1.6rem;">${price:,.2f}</div>
                           <div class="kpi-badge {direction}">{arrow} {abs(change):.2f}%</div>
                         </div>""", unsafe_allow_html=True)
+
+                # ── Comparison Table ─────────────────────────────────────────
+                sec("Live Price Comparison", "SNAPSHOT")
+
+                # Fetch fundamentals for 52W range & market cap
+                fund_live = load_live_fundamentals()
+
+                rows_html = ""
+                sorted_prices = sorted(
+                    [(co, d) for co, d in prices.items() if co in sel_companies],
+                    key=lambda x: x[1].get('price', 0), reverse=True
+                )
+
+                for company, data in sorted_prices:
+                    ticker  = NAME_TO_TICKER.get(company, '')
+                    price   = data.get('price', 0)
+                    change  = data.get('change_pct', 0)
+                    volume  = data.get('volume', 0)
+                    color   = COLORS.get(company, '#818cf8')
+
+                    # Change badge
+                    if change > 0:
+                        chg_html = f'<span class="badge-up">▲ {change:.2f}%</span>'
+                    elif change < 0:
+                        chg_html = f'<span class="badge-dn">▼ {abs(change):.2f}%</span>'
+                    else:
+                        chg_html = f'<span class="badge-fl">— {change:.2f}%</span>'
+
+                    # Volume formatting
+                    if volume >= 1_000_000:
+                        vol_str = f"{volume/1_000_000:.1f}M"
+                    elif volume >= 1_000:
+                        vol_str = f"{volume/1_000:.0f}K"
+                    else:
+                        vol_str = str(volume) if volume else "—"
+
+                    # 52W range & market cap from fundamentals
+                    w52_high = w52_low = mktcap = pe = "—"
+                    if not fund_live.empty:
+                        frow = fund_live[fund_live['Company'] == company]
+                        if not frow.empty:
+                            frow = frow.iloc[0]
+                            h = frow.get('52w_high')
+                            l = frow.get('52w_low')
+                            m = frow.get('marketCap_B')
+                            p_e = frow.get('trailingPE')
+                            w52_high = f"${h:,.2f}" if h and not pd.isna(h) else "—"
+                            w52_low  = f"${l:,.2f}" if l and not pd.isna(l) else "—"
+                            mktcap   = f"${m:,.0f}B"  if m and not pd.isna(m) else "—"
+                            pe       = f"{p_e:.1f}x"  if p_e and not pd.isna(p_e) else "—"
+
+                    rows_html += f"""
+                    <tr>
+                      <td><span class="cmp-dot" style="background:{color};"></span><strong>{company}</strong>
+                          <span style="color:#64748b;font-size:0.7rem;margin-left:6px;">{ticker}</span></td>
+                      <td style="color:#e2e8f0;font-weight:700;">${price:,.2f}</td>
+                      <td>{chg_html}</td>
+                      <td>{vol_str}</td>
+                      <td>{w52_high}</td>
+                      <td>{w52_low}</td>
+                      <td>{mktcap}</td>
+                      <td>{pe}</td>
+                    </tr>"""
+
+                st.markdown(f"""
+                <div class="cmp-wrap">
+                  <table class="cmp-table">
+                    <thead>
+                      <tr>
+                        <th>Company</th>
+                        <th>Price (USD)</th>
+                        <th>Change %</th>
+                        <th>Volume</th>
+                        <th>52W High</th>
+                        <th>52W Low</th>
+                        <th>Mkt Cap</th>
+                        <th>P/E</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows_html}
+                    </tbody>
+                  </table>
+                </div>
+                """, unsafe_allow_html=True)
+
         except Exception as e:
             st.warning(f"Could not fetch live prices: {e}")
 
