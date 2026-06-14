@@ -44,13 +44,34 @@ SECTOR_MAP = {
 
 
 def _strip_tz(index):
-    """Safely strip timezone from a DatetimeIndex."""
+    """
+    Remove timezone information from a pandas DatetimeIndex.
+
+    yfinance returns timezone-aware indices (usually US/Eastern or UTC).
+    Streamlit and pandas merge operations work best with naive datetimes,
+    so we normalise to UTC then strip the tzinfo entirely.
+
+    Args:
+        index (pd.DatetimeIndex): The index to normalise.
+
+    Returns:
+        pd.DatetimeIndex: A timezone-naive copy of the index.
+    """
     if hasattr(index, "tz") and index.tz is not None:
         return index.tz_convert("UTC").tz_localize(None)
     return index
 
 
 def is_market_open() -> bool:
+    """
+    Check whether the US equity market (NYSE / NASDAQ) is currently open.
+
+    Uses the America/New_York timezone.  Does not account for early-close
+    days (e.g. day before Thanksgiving) — those are treated as full sessions.
+
+    Returns:
+        bool: True if it is currently a weekday between 09:30 and 16:00 ET.
+    """
     try:
         et = pytz.timezone("America/New_York")
         now_et = datetime.now(et)
@@ -64,6 +85,23 @@ def is_market_open() -> bool:
 
 
 def get_smart_period_interval(user_period: str, user_interval: str):
+    """
+    Adjust the yfinance period/interval pair based on market status.
+
+    When the market is closed and the user requests a 1-day window, there
+    may be no intraday bars available.  This helper automatically widens
+    the period to 5 days so charts always have data to display.
+
+    Args:
+        user_period   (str): Requested period string (e.g. "1d", "5d", "1mo").
+        user_interval (str): Requested interval string (e.g. "5m", "1h", "1d").
+
+    Returns:
+        tuple[str, str, bool]:
+            - Effective period string after adjustment.
+            - Effective interval string (unchanged).
+            - Whether the market is currently open.
+    """
     open_ = is_market_open()
     period   = user_period
     interval = user_interval
@@ -77,8 +115,20 @@ def get_smart_period_interval(user_period: str, user_interval: str):
 # ─────────────────────────────────────────────────────────────────────────────
 def get_live_price(ticker: str):
     """
-    Returns (price, change_pct, volume).
-    Uses currentPrice from info for accuracy.
+    Fetch the latest trade price, percentage change, and volume for a ticker.
+
+    Priority order for price:
+      currentPrice → regularMarketPrice → ask → bid
+
+    Priority order for change %:
+      regularMarketChangePercent → computed from regularMarketPreviousClose
+
+    Args:
+        ticker (str): A valid Yahoo Finance ticker symbol, e.g. "AAPL".
+
+    Returns:
+        tuple[float | None, float | None, int | None]:
+            (price, change_pct, volume).  All three are None on any error.
     """
     try:
         info = yf.Ticker(ticker).info
@@ -107,9 +157,23 @@ def get_live_price(ticker: str):
 
 def get_multi_live_prices(tickers: list = None) -> dict:
     """
-    FIX: tickers now optional (defaults to all companies).
-    FIX: returns dict {company_name: {price, change_pct, volume}}
-         so nexus.py can iterate as: for company, info in live_prices.items()
+    Fetch live prices for multiple tickers in a single call.
+
+    Iterates over each ticker and calls get_live_price().  Missing or failed
+    lookups default to 0.0 / 0 so callers never receive None values.
+
+    Args:
+        tickers (list[str] | None): Ticker symbols to fetch.  Defaults to
+            all 8 companies in the TICKERS registry.
+
+    Returns:
+        dict[str, dict]: Keyed by *company name* (not ticker), each value is::
+
+            {
+                "price":      float,  # latest trade price (USD)
+                "change_pct": float,  # % change vs previous close
+                "volume":     int,    # shares traded today
+            }
     """
     if tickers is None:
         tickers = TICKERS
@@ -129,6 +193,27 @@ def get_multi_live_prices(tickers: list = None) -> dict:
 # 2. INTRADAY DATA
 # ─────────────────────────────────────────────────────────────────────────────
 def get_intraday_data(ticker: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
+    """
+    Download intraday OHLCV bars for a single ticker.
+
+    Uses a three-tier fallback strategy to handle market-closed / thin-data
+    situations:
+      1. Requested period + interval with prepost=True.
+      2. Same period + interval without prepost.
+      3. 5-day daily bars as a last resort.
+
+    Timezone is stripped from the index before returning (see _strip_tz).
+
+    Args:
+        ticker   (str): Yahoo Finance ticker symbol.
+        period   (str): Data window, e.g. "1d", "5d".  Auto-adjusted when
+                        the market is closed (see get_smart_period_interval).
+        interval (str): Bar size, e.g. "5m", "15m", "1h".
+
+    Returns:
+        pd.DataFrame: Columns = [Open, High, Low, Close, Volume] with a
+            timezone-naive DatetimeIndex.  Empty DataFrame on any error.
+    """
     try:
         period, interval, market_open = get_smart_period_interval(period, interval)
         t  = yf.Ticker(ticker)
@@ -152,6 +237,23 @@ def get_intraday_data(ticker: str, period: str = "1d", interval: str = "5m") -> 
 # 3. LIVE FUNDAMENTALS
 # ─────────────────────────────────────────────────────────────────────────────
 def get_live_fundamentals(ticker: str) -> dict:
+    """
+    Pull key fundamental metrics for a single ticker from yfinance.
+
+    All monetary values are normalised to billions (B) or thousands (K)
+    for consistency with the CSV datasets used in the app.
+
+    Derived metrics computed here:
+      - ``net_margin``    : netIncomeToCommon / totalRevenue × 100
+      - ``ps_ratio``      : marketCap / totalRevenue
+      - ``rev_per_emp_M`` : totalRevenue / fullTimeEmployees / 1e6
+
+    Args:
+        ticker (str): Yahoo Finance ticker symbol.
+
+    Returns:
+        dict: Fundamental metrics.  Empty dict on any network/parse error.
+    """
     try:
         info = yf.Ticker(ticker).info
         mc   = info.get("marketCap")            or 0
@@ -163,7 +265,6 @@ def get_live_fundamentals(ticker: str) -> dict:
             "revenue_B":     round(rev / 1e9, 2),
             "netIncome_B":   round(ni  / 1e9, 2),
             "employees_K":   round(emp / 1e3, 1),
-            # FIX: expose all columns nexus.py needs
             "peRatio":       info.get("trailingPE"),
             "trailingPE":    info.get("trailingPE"),
             "forwardPE":     info.get("forwardPE"),
@@ -181,6 +282,15 @@ def get_live_fundamentals(ticker: str) -> dict:
 
 
 def get_all_fundamentals() -> pd.DataFrame:
+    """
+    Fetch fundamentals for all 8 tracked companies and return as a DataFrame.
+
+    Calls get_live_fundamentals() for each ticker in COMPANIES, appends
+    ``Company`` and ``Ticker`` columns, then concatenates into a single frame.
+
+    Returns:
+        pd.DataFrame: One row per company.  Empty DataFrame if all calls fail.
+    """
     rows = []
     for ticker, name in COMPANIES.items():
         d = get_live_fundamentals(ticker)
@@ -195,6 +305,26 @@ def get_all_fundamentals() -> pd.DataFrame:
 # 4. LIVE PRICE HISTORY
 # ─────────────────────────────────────────────────────────────────────────────
 def get_price_history(ticker: str, period: str = "5y", interval: str = "1d") -> pd.DataFrame:
+    """
+    Download daily adjusted closing prices and derived columns for one ticker.
+
+    Adds convenience columns on top of the raw yfinance OHLCV data:
+      - ``Price``        : alias for Close (used throughout nexus.py)
+      - ``Daily_Return`` : percentage price change from previous close
+      - ``Volume_M``     : volume in millions
+      - ``Company``      : human-readable company name from COMPANIES registry
+
+    The Date index is reset to a plain column and stripped of timezone info.
+
+    Args:
+        ticker   (str): Yahoo Finance ticker symbol.
+        period   (str): History window, e.g. "5y", "2y".  Default "5y".
+        interval (str): Bar size.  Default "1d" (daily).
+
+    Returns:
+        pd.DataFrame: Columns include Date, Open, High, Low, Close, Volume,
+            Price, Daily_Return, Volume_M, Company.  Empty on error.
+    """
     try:
         df = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
         if df.empty:
@@ -216,6 +346,16 @@ def get_price_history(ticker: str, period: str = "5y", interval: str = "1d") -> 
 
 
 def get_all_price_history(period: str = "5y") -> pd.DataFrame:
+    """
+    Download price history for all 8 companies and concatenate into one frame.
+
+    Args:
+        period (str): History window passed to get_price_history().  Default "5y".
+
+    Returns:
+        pd.DataFrame: Combined frame with a ``Company`` column to distinguish rows.
+            Empty DataFrame if every individual call fails.
+    """
     frames = [get_price_history(t, period=period) for t in TICKERS]
     frames = [f for f in frames if not f.empty]
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
@@ -225,6 +365,21 @@ def get_all_price_history(period: str = "5y") -> pd.DataFrame:
 # 5. LIVE QUARTERLY REVENUE
 # ─────────────────────────────────────────────────────────────────────────────
 def get_quarterly_financials(ticker: str) -> pd.DataFrame:
+    """
+    Parse quarterly revenue and net income from yfinance income statements.
+
+    Row detection is fuzzy — it searches for 'total revenue' and 'net income'
+    (case-insensitive) in the statement index, skipping rows that contain
+    noise words like 'cost', 'minority', or 'loss'.
+
+    Args:
+        ticker (str): Yahoo Finance ticker symbol.
+
+    Returns:
+        pd.DataFrame: Columns = [Quarter (datetime), Company, Revenue_B,
+            NetIncome_B], sorted by Quarter ascending.
+            Empty DataFrame if no revenue row is found or on any error.
+    """
     try:
         t  = yf.Ticker(ticker)
         qf = getattr(t, "quarterly_income_stmt", None)
@@ -266,6 +421,16 @@ def get_quarterly_financials(ticker: str) -> pd.DataFrame:
 
 
 def get_all_quarterly(tickers: list = None) -> pd.DataFrame:
+    """
+    Fetch quarterly financials for multiple tickers and concatenate.
+
+    Args:
+        tickers (list[str] | None): Ticker symbols to fetch.  Defaults to
+            all entries in the TICKERS registry.
+
+    Returns:
+        pd.DataFrame: Combined quarterly data.  Empty if all calls fail.
+    """
     tickers = tickers or TICKERS
     frames  = [get_quarterly_financials(t) for t in tickers]
     frames  = [f for f in frames if not f.empty]
@@ -276,6 +441,20 @@ def get_all_quarterly(tickers: list = None) -> pd.DataFrame:
 # 6. LIVE ANNUAL METRICS  +  CURRENT YEAR TTM INJECTION
 # ─────────────────────────────────────────────────────────────────────────────
 def get_ttm_as_current_year(ticker: str) -> dict | None:
+    """
+    Build a synthetic "current year" row from trailing-twelve-month (TTM) data.
+
+    yfinance's annual income_stmt only goes to the last *fiscal year end*.
+    This function injects a TTM row for the *current calendar year* so the
+    charts stay up-to-date between annual report releases.
+
+    Args:
+        ticker (str): Yahoo Finance ticker symbol.
+
+    Returns:
+        dict | None: A single-row dict matching the schema of get_annual_financials()
+            rows, tagged with ``is_ttm=True``.  None if revenue is zero or on error.
+    """
     try:
         current_year = datetime.now().year
         name = COMPANIES[ticker]
@@ -304,6 +483,26 @@ def get_ttm_as_current_year(ticker: str) -> dict | None:
 
 
 def get_annual_financials(ticker: str) -> pd.DataFrame:
+    """
+    Download and parse annual income-statement data for one ticker.
+
+    Revenue and net income rows are detected by fuzzy label matching
+    (same strategy as get_quarterly_financials).  Market cap and headcount
+    are read from yfinance .info (point-in-time, not historical) and
+    attached to every annual row as a best-effort approximation.
+
+    A TTM row for the current calendar year is automatically appended if the
+    most recent fiscal year in the data is older than the current year
+    (see get_ttm_as_current_year).
+
+    Args:
+        ticker (str): Yahoo Finance ticker symbol.
+
+    Returns:
+        pd.DataFrame: Annual financials with columns [Year, Company, Sector,
+            Revenue_B, NetIncome_B, MarketCap_B, Employees_K, is_ttm],
+            sorted by Year ascending.  Empty DataFrame on error.
+    """
     try:
         t  = yf.Ticker(ticker)
         af = getattr(t, "income_stmt", None)
@@ -364,6 +563,16 @@ def get_annual_financials(ticker: str) -> pd.DataFrame:
 
 
 def get_all_annual(tickers: list = None) -> pd.DataFrame:
+    """
+    Fetch annual financials for multiple tickers and concatenate.
+
+    Args:
+        tickers (list[str] | None): Ticker symbols to fetch.  Defaults to
+            all entries in the TICKERS registry.
+
+    Returns:
+        pd.DataFrame: Combined annual data.  Empty if all calls fail.
+    """
     tickers = tickers or TICKERS
     frames  = [get_annual_financials(t) for t in tickers]
     frames  = [f for f in frames if not f.empty]
@@ -377,26 +586,41 @@ def get_all_annual(tickers: list = None) -> pd.DataFrame:
 def merge_with_csv(live_df: pd.DataFrame, csv_df: pd.DataFrame,
                    key_cols: list) -> pd.DataFrame:
     """
+    Merge live yfinance data with the bundled CSV fallback datasets.
+
     Merge strategy:
-      1. Concat csv THEN live  (so live rows sort last → keep='last' keeps live).
-      2. For any column that exists only in csv_df (e.g. RD_B), backfill NaNs
-         in the live rows from the csv rows BEFORE deduplication.
+      1. Union both frames' columns so neither loses CSV-only fields (e.g. RD_B).
+      2. Concatenate csv THEN live (live rows land last).
+      3. Forward-fill CSV-only columns into the live rows within each key group
+         so live rows inherit CSV metadata they don't carry themselves.
+      4. Deduplicate on key_cols keeping the **last** occurrence (= live row).
+
+    This ensures:
+      - Live data always wins for shared columns (Revenue_B, NetIncome_B, …).
+      - CSV-only columns (R&D spend, etc.) are still available on live rows.
+      - Rows present only in CSV (older years) are preserved.
+
+    Args:
+        live_df  (pd.DataFrame): Frame from yfinance (may be empty).
+        csv_df   (pd.DataFrame): Frame from the bundled CSV files.
+        key_cols (list[str]):    Columns that uniquely identify a row,
+                                 e.g. ['Company', 'Year'] or ['Company', 'Date'].
+
+    Returns:
+        pd.DataFrame: Merged frame sorted by key_cols.  Returns the non-empty
+            input unchanged if the other is empty.
     """
     if live_df is None or (hasattr(live_df, "empty") and live_df.empty):
         return csv_df
     if csv_df is None or (hasattr(csv_df, "empty") and csv_df.empty):
         return live_df
 
-    # Align columns — union of both frames
     all_cols = list(dict.fromkeys(list(csv_df.columns) + list(live_df.columns)))
     csv_aligned  = csv_df.reindex(columns=all_cols)
     live_aligned = live_df.reindex(columns=all_cols)
 
-    # Concat: csv first so live rows are the "last" duplicate → kept by keep='last'
     combined = pd.concat([csv_aligned, live_aligned], ignore_index=True)
 
-    # For each key group, forward-fill CSV-only columns into live rows
-    # (csv rows come first in the concat, live rows second)
     csv_only_cols = [c for c in all_cols if c not in live_df.columns and c not in key_cols]
     if csv_only_cols:
         combined = combined.sort_values(key_cols).reset_index(drop=True)
@@ -413,6 +637,20 @@ def merge_with_csv(live_df: pd.DataFrame, csv_df: pd.DataFrame,
 # 8. COMPANY INFO CARD
 # ─────────────────────────────────────────────────────────────────────────────
 def get_company_info(ticker: str) -> dict:
+    """
+    Fetch a concise set of valuation and risk metrics for a company info card.
+
+    Unlike get_live_fundamentals, this function returns raw yfinance values
+    (not normalised to billions) and focuses on the subset needed for the
+    sidebar / info-card widget in the Live Dashboard page.
+
+    Args:
+        ticker (str): Yahoo Finance ticker symbol.
+
+    Returns:
+        dict: Keys: marketCap, trailingPE, forwardPE, fiftyTwoWeekHigh,
+            fiftyTwoWeekLow, dividendYield, beta.  Empty dict on any error.
+    """
     try:
         info = yf.Ticker(ticker).info
         return {
