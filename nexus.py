@@ -18,7 +18,7 @@ pages/
   page_ai_insights.py         ← Page 6
 nexus_ld_page.py              ← Page 7  (Live Dashboard)
 live_data.py                  ← yfinance data layer
-constants.py                  ← shared constants
+constants.py                  ← single source of truth: companies, colours, TTLs
 """
 
 import streamlit as st
@@ -27,6 +27,16 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 from pathlib import Path
+
+# ── SINGLE SOURCE OF TRUTH: all company / colour constants ──────────────────
+from constants import (
+    COLORS,          # company-name → hex  (used by every chart)
+    ALL_COMPANIES,   # ordered list of display names
+    COMPANIES,       # ticker → name  (re-exported for page modules that need it)
+    COMPANY_COLORS,  # ticker → hex   (used by live dashboard / intraday charts)
+    NAME_TO_TICKER,  # name → ticker
+    DATA_TTL,        # cache TTL values
+)
 
 st.set_page_config(
     page_title="MARKET NEXUS", page_icon="🚀",
@@ -177,14 +187,7 @@ PL = dict(
                 font=dict(size=10, color="#94a3b8"), orientation='h', y=1.12),
 )
 
-# ── CONSTANTS ─────────────────────────────────────────────────────────────────
-COLORS = {
-    'Apple': '#e2e8f0', 'Microsoft': '#60a5fa', 'Google': '#f87171',
-    'Amazon': '#fbbf24', 'Meta': '#f97316', 'NVIDIA': '#86efac',
-    'Tesla': '#fb7185', 'Netflix': '#f472b6',
-}
-ALL_COMPANIES = list(COLORS.keys())
-
+# ── PAGE INDEX CONSTANTS ─────────────────────────────────────────────────────────
 PAGE_NAMES = [
     "🏠  Command Center", "📈  Stock Performance", "💰  Revenue & Earnings",
     "🏆  Competitive Analysis", "🔬  Deep Analytics",
@@ -234,7 +237,6 @@ try:
         get_live_price, get_intraday_data, get_multi_live_prices,
         get_all_fundamentals, get_all_price_history,
         get_all_quarterly, get_all_annual, merge_with_csv,
-        COMPANIES as LIVE_COMPANIES, COMPANY_COLORS, NAME_TO_TICKER,
         is_market_open,
     )
     _live_ok = True
@@ -252,14 +254,15 @@ except ImportError:
 @st.cache_data(show_spinner=False)
 def load_csv():
     """Load the three bundled CSV datasets from the repo root."""
+    from constants import CSV_FILES
     base = Path(__file__).parent
-    q = pd.read_csv(base / "quarterly_revenue.csv", parse_dates=["Quarter"])
-    a = pd.read_csv(base / "annual_metrics.csv")
-    p = pd.read_csv(base / "stock_prices.csv", parse_dates=["Date"])
+    q = pd.read_csv(base / CSV_FILES["quarterly"], parse_dates=["Quarter"])
+    a = pd.read_csv(base / CSV_FILES["annual"])
+    p = pd.read_csv(base / CSV_FILES["prices"], parse_dates=["Date"])
     return q, a, p
 
 
-@st.cache_data(ttl=43200, show_spinner=False)
+@st.cache_data(ttl=DATA_TTL["annual"], show_spinner=False)
 def load_live_annual():
     if not _live_ok:
         return pd.DataFrame()
@@ -269,7 +272,7 @@ def load_live_annual():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=43200, show_spinner=False)
+@st.cache_data(ttl=DATA_TTL["quarterly"], show_spinner=False)
 def load_live_quarterly():
     if not _live_ok:
         return pd.DataFrame()
@@ -279,7 +282,7 @@ def load_live_quarterly():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
+@st.cache_data(ttl=DATA_TTL["price_history"], show_spinner=False)
 def load_live_prices():
     if not _live_ok:
         return pd.DataFrame()
@@ -289,7 +292,7 @@ def load_live_prices():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=DATA_TTL["fundamentals"], show_spinner=False)
 def load_live_fundamentals():
     if not _live_ok:
         return pd.DataFrame()
@@ -299,7 +302,7 @@ def load_live_fundamentals():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=DATA_TTL["merged_pipeline"], show_spinner=False)
 def build_merged_data():
     """Merge live yfinance data with bundled CSVs; live data wins on overlap."""
     q_csv, ann_csv, price_csv = load_csv()
@@ -486,8 +489,8 @@ def page_header_single(title_html, key_suffix):
 
 
 # ── TICKER TAPE ───────────────────────────────────────────────────────────────
-ticker_syms = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX"]
-ticker_html = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in ticker_syms * 2])
+from constants import TICKERS as _TICKERS
+ticker_html = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in _TICKERS * 2])
 st.markdown(
     f'<div class="ticker-wrap"><div class="ticker-inner">{ticker_html} &nbsp;&nbsp; {ticker_html}</div></div>',
     unsafe_allow_html=True,

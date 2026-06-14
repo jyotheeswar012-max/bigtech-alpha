@@ -7,40 +7,14 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 
-# ── Company registry ──────────────────────────────────────────────────────────
-COMPANIES = {
-    "AAPL":  "Apple",
-    "MSFT":  "Microsoft",
-    "GOOGL": "Google",
-    "AMZN":  "Amazon",
-    "META":  "Meta",
-    "NVDA":  "NVIDIA",
-    "TSLA":  "Tesla",
-    "NFLX":  "Netflix",
-}
-NAME_TO_TICKER = {v: k for k, v in COMPANIES.items()}
-COMPANY_COLORS = {
-    "AAPL":  "#e8e8e8",
-    "MSFT":  "#00aff0",
-    "GOOGL": "#fbbc05",
-    "AMZN":  "#ff9900",
-    "META":  "#1877f2",
-    "NVDA":  "#76b900",
-    "TSLA":  "#cc0000",
-    "NFLX":  "#e50914",
-}
-TICKERS = list(COMPANIES.keys())
-
-SECTOR_MAP = {
-    "Apple":     "Hardware",
-    "Microsoft": "Cloud/Software",
-    "Google":    "Digital Ads",
-    "Amazon":    "E-Commerce/Cloud",
-    "Meta":      "Social Media",
-    "NVIDIA":    "Semiconductors",
-    "Tesla":     "EV/Energy",
-    "Netflix":   "Streaming",
-}
+# ── All company/colour/sector constants live in constants.py ─────────────────
+from constants import (
+    COMPANIES,
+    COMPANY_COLORS,
+    TICKERS,
+    NAME_TO_TICKER,
+    SECTOR_MAP,
+)
 
 
 def _strip_tz(index):
