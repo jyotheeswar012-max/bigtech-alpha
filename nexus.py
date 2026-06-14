@@ -98,7 +98,6 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
 .sec-tag{font-size:0.58rem;color:#fff!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
 .page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;}
-.yr-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:0.9rem 1.2rem 0.7rem;}
 .yr-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--txt3);font-weight:600;margin-bottom:0.4rem;}
 .insight-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 2rem;margin-bottom:1rem;border-left:4px solid var(--primary);box-shadow:var(--shadow);transition:all 0.25s;}
 .insight-card:hover{transform:translateX(6px);box-shadow:var(--shadow-lg);}
@@ -146,6 +145,7 @@ if "page_idx" not in st.session_state:
     st.session_state.page_idx = 0
 
 
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 def hex_to_rgba(h, a=0.15):
     h = h.lstrip('#')
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
@@ -290,6 +290,18 @@ def best_common_year(df, all_cos=None):
     return int(valid.index.max()) if not valid.empty else int(yc.index.max())
 
 
+# FIX: defined here so it is available everywhere below
+def get_latest_slice(df, companies, fallback_year=None):
+    """Return rows for the most recent common year within df filtered to companies."""
+    if df.empty:
+        return pd.DataFrame(), fallback_year or 2025
+    sub = df[df['Company'].isin(companies)]
+    if sub.empty:
+        return pd.DataFrame(), fallback_year or 2025
+    yr = best_common_year(sub, companies) if fallback_year is None else fallback_year
+    return sub[sub['Year'] == yr].copy(), yr
+
+
 COMMON_LATEST_YEAR = best_common_year(ann_df)
 SLIDER_MIN = int(ann_df['Year'].min()) if not ann_df.empty else 2020
 SLIDER_MAX = COMMON_LATEST_YEAR
@@ -338,10 +350,9 @@ with st.sidebar:
 page_idx = st.session_state.page_idx
 
 
-# ── PAGE HEADER HELPER: title (left) + year range slider (right) ─────────────────
+# ── PAGE HEADER: title (left) + year range slider (right) ────────────────────────
 def page_header(title_html, key_suffix):
-    """Renders page title on the left and year-range slider on the right.
-    Returns (year_range_tuple) that the page should use for all filtering."""
+    """Render page title left, year-range slider right. Returns (yr_min, yr_max) tuple."""
     title_col, spacer, yr_col = st.columns([5, 1, 2])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
@@ -408,7 +419,7 @@ if page_idx == PAGE_CC:
         nvda_ni     = nvda_row['netIncome_B'].values[0] if not nvda_row.empty else 0
         data_label  = "Live Data"
     else:
-        latest_sl, lyr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+        latest_sl, lyr = get_latest_slice(ann_f, sel_companies)
         if latest_sl.empty:
             total_rev, total_mcap, top_mcap_co, top_mcap, nvda_ni = 0, 0, "N/A", 0, 0
             data_label = "No data"
@@ -494,7 +505,7 @@ if page_idx == PAGE_CC:
             yaxis_title="Indexed Return")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        margin_sl, m_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+        margin_sl, m_yr = get_latest_slice(ann_f, sel_companies)
         if not margin_sl.empty:
             margin_sl = margin_sl.copy()
             margin_sl['Margin'] = (margin_sl['NetIncome_B'] / margin_sl['Revenue_B'].replace(0, np.nan) * 100).round(1).fillna(0)
@@ -513,7 +524,7 @@ if page_idx == PAGE_CC:
     sec("Revenue Distribution & Headcount", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns(2)
     with c1:
-        treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+        treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies)
         if not treemap_sl.empty and 'Sector' in treemap_sl.columns:
             fig = px.treemap(treemap_sl, path=['Sector', 'Company'], values='Revenue_B',
                 color='NetIncome_B',
@@ -526,7 +537,7 @@ if page_idx == PAGE_CC:
                 coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        emp_sl, e_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+        emp_sl, e_yr = get_latest_slice(ann_f, sel_companies)
         if not emp_sl.empty:
             emp_sl = emp_sl.copy()
             emp_sl['RevPerEmp'] = (emp_sl['Revenue_B'] * 1e9 / (emp_sl['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2).fillna(0)
@@ -540,18 +551,6 @@ if page_idx == PAGE_CC:
                 title=dict(text=f"Revenue per Employee {e_yr} ($M)", font=dict(size=13, color='#94a3b8')),
                 xaxis_title="$M per Employee")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-
-# helper used by all pages after CC
-def _get_latest_slice(df, companies):
-    sub = df[df['Company'].isin(companies)]
-    yr  = best_common_year(sub, companies)
-    return sub[sub['Year'] == yr].copy(), yr
-
-def get_latest_slice(df, companies, fallback_year=None):
-    sub = df[df['Company'].isin(companies)]
-    yr  = best_common_year(sub, companies) if fallback_year is None else fallback_year
-    return sub[sub['Year'] == yr].copy(), yr
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -689,7 +688,7 @@ elif page_idx == PAGE_SP:
 # PAGE 3 — REVENUE & EARNINGS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_RE:
-    year_range = page_header("💰 Revenue &amp; Earnings", "re")
+    year_range = page_header("💰 Revenue & Earnings", "re")
     ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
     q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
     FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
@@ -761,7 +760,7 @@ elif page_idx == PAGE_RE:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     with tab3:
-        prof_sl, p_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+        prof_sl, p_yr = get_latest_slice(ann_f, sel_companies)
         c1, c2 = st.columns(2)
         with c1:
             fig = go.Figure()
@@ -917,7 +916,7 @@ elif page_idx == PAGE_DA:
 elif page_idx == PAGE_AI:
     year_range = page_header("🤖 AI Insight Engine", "ai")
     ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
-    latest_sl, l_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+    latest_sl, l_yr = get_latest_slice(ann_f, sel_companies)
 
     if latest_sl.empty:
         st.warning("No data for the selected year range. Please adjust the Year Range filter.")
@@ -968,7 +967,6 @@ elif page_idx == PAGE_AI:
 # PAGE 7 — LIVE DASHBOARD
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_LD:
-    # Live Dashboard doesn't use year range for live prices; show header only
     title_col, _ = st.columns([5, 3])
     with title_col:
         st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
@@ -1010,11 +1008,14 @@ elif page_idx == PAGE_LD:
             intraday_df = get_intraday_data(intraday_co)
             if intraday_df is not None and not intraday_df.empty:
                 color = COLORS.get(intraday_co, '#818cf8')
-                fig = go.Figure()
-                x_vals = (intraday_df.index if intraday_df.index.name == 'Datetime'
-                          else intraday_df.get('Datetime', intraday_df.index))
-                y_col = 'Close' if 'Close' in intraday_df.columns else intraday_df.columns[0]
+                # Resolve x-axis: prefer 'Datetime' column, else use index
+                if 'Datetime' in intraday_df.columns:
+                    x_vals = intraday_df['Datetime']
+                else:
+                    x_vals = intraday_df.index
+                y_col  = 'Close' if 'Close' in intraday_df.columns else intraday_df.columns[0]
                 y_vals = intraday_df[y_col]
+                fig = go.Figure()
                 fig.add_trace(go.Scatter(x=x_vals, y=y_vals, name=intraday_co, mode='lines',
                     line=dict(color=color, width=2),
                     fill='tozeroy', fillcolor=hex_to_rgba(color, 0.07),
