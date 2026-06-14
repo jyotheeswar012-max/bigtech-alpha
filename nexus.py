@@ -271,13 +271,12 @@ def build_merged_data():
             c for c in ann_csv_typed.columns
             if c not in ('Company', 'Year')
             and c in ann_df.columns
-            and ann_df[c].isna().any()          # ← any NaN row, not all
+            and ann_df[c].isna().any()
             and ann_csv_typed[c].notna().any()
         ]
 
         if ghost_cols:
             csv_patch = ann_csv_typed[['Company', 'Year'] + ghost_cols].copy()
-            # Suffixed left-join so live values are never overwritten
             ann_df = ann_df.merge(
                 csv_patch,
                 on=['Company', 'Year'],
@@ -378,14 +377,12 @@ with st.sidebar:
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     data_src = "Live Data" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     price_latest = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
-    rd_ok = 'RD_B' in ann_df.columns and ann_df['RD_B'].notna().any()
     st.markdown(
         f"<div style='font-size:0.6rem;opacity:0.5;line-height:2;'>"
         f"🕐 {datetime.now().strftime('%H:%M:%S')}<br>"
         f"📡 {data_src}<br>"
         f"📅 Latest year: {COMMON_LATEST_YEAR}<br>"
         f"📈 Prices to: {price_latest}<br>"
-        f"🔬 R&D data: {'✅' if rd_ok else '❌'}<br>"
         f"🗂 {len(q_df)+len(ann_df)+len(price_df):,} records"
         f"</div>",
         unsafe_allow_html=True
@@ -757,7 +754,7 @@ elif page_idx == PAGE_RE:
     ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
     q_f   = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
 
-    tab1, tab2, tab3 = st.tabs(["📊 Revenue Trends", "💵 Earnings & Margins", "🔬 R&D Intelligence"])
+    tab1, tab2 = st.tabs(["📊 Revenue Trends", "💵 Earnings & Margins"])
 
     # ── TAB 1: Revenue Trends ─────────────────────────────────────────────────
     with tab1:
@@ -876,213 +873,6 @@ elif page_idx == PAGE_RE:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("No margin data available for the selected filters.")
-
-    # ════════════════════════════════════════════════════════════════════
-    # TAB 3 — R&D INTELLIGENCE DASHBOARD
-    # ════════════════════════════════════════════════════════════════════
-    with tab3:
-        has_rd = 'RD_B' in ann_f.columns and ann_f['RD_B'].notna().any()
-
-        if not has_rd:
-            st.error(
-                "⚠️ **R&D data not found.** "
-                "Please ensure `annual_metrics.csv` contains an `RD_B` column "
-                "(R&D spend in billions). Example rows:\n\n"
-                "```\nCompany,Year,Revenue_B,...,RD_B\n"
-                "Apple,2023,383.3,...,29.9\n"
-                "Microsoft,2023,211.9,...,27.2\n```"
-            )
-        else:
-            rd_rows = []
-            for co in sel_companies:
-                sub = ann_f[ann_f['Company'] == co].sort_values('Year').copy()
-                if sub.empty or 'RD_B' not in sub.columns:
-                    continue
-                sub = sub[sub['RD_B'].notna()]
-                for _, row in sub.iterrows():
-                    rd_rows.append({
-                        'Company': co,
-                        'Year': int(row['Year']),
-                        'RD_B': float(row['RD_B']),
-                        'Revenue_B': float(row.get('Revenue_B', np.nan)),
-                        'NetIncome_B': float(row.get('NetIncome_B', np.nan)),
-                        'Employees_K': float(row.get('Employees_K', np.nan)),
-                    })
-            rdf = pd.DataFrame(rd_rows)
-
-            if rdf.empty:
-                st.info("No R&D data available for the selected companies / year range.")
-            else:
-                rdf['RD_Pct'] = (rdf['RD_B'] / rdf['Revenue_B'].replace(0, np.nan) * 100).round(2)
-                rdf['RD_PerEmp_M'] = (
-                    rdf['RD_B'] * 1e9
-                    / (rdf['Employees_K'].replace(0, np.nan) * 1e3)
-                    / 1e6
-                ).round(3)
-
-                latest_rd = rdf[rdf['Year'] == rdf['Year'].max()]
-                if not latest_rd.empty:
-                    top_abs  = latest_rd.loc[latest_rd['RD_B'].idxmax()]
-                    top_int  = latest_rd.loc[latest_rd['RD_Pct'].idxmax()]
-                    total_rd = latest_rd['RD_B'].sum()
-                    avg_int  = latest_rd['RD_Pct'].mean()
-                    st.markdown(f"""
-                    <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
-                      <div class="kpi"><div class="kpi-stripe purple"></div><div class="kpi-icon">🔬</div>
-                        <div class="kpi-label">Combined R&D Spend</div>
-                        <div class="kpi-val purple">${total_rd:.1f}B</div>
-                        <div class="kpi-sub">{int(rdf['Year'].max())} · {len(latest_rd)} companies</div></div>
-                      <div class="kpi"><div class="kpi-stripe"></div><div class="kpi-icon">🥇</div>
-                        <div class="kpi-label">Largest R&D Spender</div>
-                        <div class="kpi-val">{top_abs['Company']}</div>
-                        <div class="kpi-sub">${top_abs['RD_B']:.1f}B absolute</div></div>
-                      <div class="kpi"><div class="kpi-stripe green"></div><div class="kpi-icon">📊</div>
-                        <div class="kpi-label">Highest R&D Intensity</div>
-                        <div class="kpi-val green">{top_int['Company']}</div>
-                        <div class="kpi-sub">{top_int['RD_Pct']:.1f}% of revenue</div></div>
-                      <div class="kpi"><div class="kpi-stripe orange"></div><div class="kpi-icon">📐</div>
-                        <div class="kpi-label">Avg R&D Intensity</div>
-                        <div class="kpi-val orange">{avg_int:.1f}%</div>
-                        <div class="kpi-sub">across selected cos</div></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                sec("R&D Spend & Intensity", f"{year_range[0]}–{year_range[1]}")
-                c1, c2 = st.columns(2)
-
-                with c1:
-                    fig = go.Figure()
-                    for co in sel_companies:
-                        sub = rdf[rdf['Company'] == co]
-                        if sub.empty:
-                            continue
-                        fig.add_trace(go.Bar(
-                            x=sub['Year'], y=sub['RD_B'], name=co,
-                            marker_color=COLORS.get(co, '#818cf8'), opacity=0.88,
-                            hovertemplate=f'<b>{co}</b> %{{x}}<br>R&D: $%{{y:.2f}}B<extra></extra>'
-                        ))
-                    fig.update_layout(barmode='group')
-                    sf(fig, 340).update_layout(
-                        title=dict(text="Annual R&D Investment ($B)", font=dict(size=13, color='#94a3b8')),
-                        yaxis_title="R&D Spend ($B)")
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                with c2:
-                    fig = go.Figure()
-                    for co in sel_companies:
-                        sub = rdf[rdf['Company'] == co].dropna(subset=['RD_Pct'])
-                        if sub.empty:
-                            continue
-                        fig.add_trace(go.Scatter(
-                            x=sub['Year'], y=sub['RD_Pct'], name=co,
-                            mode='lines+markers',
-                            line=dict(color=COLORS.get(co, '#818cf8'), width=2.2),
-                            marker=dict(size=7),
-                            hovertemplate=f'<b>{co}</b> %{{x}}<br>%{{y:.1f}}% of revenue<extra></extra>'
-                        ))
-                    sf(fig, 340).update_layout(
-                        title=dict(text="R&D Intensity — % of Revenue", font=dict(size=13, color='#94a3b8')),
-                        yaxis_title="R&D / Revenue %")
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                sec("R&D Efficiency & Return", f"{year_range[0]}–{year_range[1]}")
-                c3, c4 = st.columns(2)
-
-                with c3:
-                    fig = go.Figure()
-                    for co in sel_companies:
-                        sub = rdf[(rdf['Company'] == co) & rdf['NetIncome_B'].notna()]
-                        if sub.empty:
-                            continue
-                        fig.add_trace(go.Scatter(
-                            x=sub['RD_B'],
-                            y=sub['NetIncome_B'],
-                            mode='markers+text',
-                            name=co,
-                            text=sub['Year'].astype(str),
-                            textposition='top center',
-                            marker=dict(
-                                color=COLORS.get(co, '#818cf8'),
-                                size=sub['Revenue_B'].fillna(10) / 6,
-                                sizemode='area',
-                                opacity=0.80,
-                                line=dict(color='#0f1117', width=1)
-                            ),
-                            hovertemplate=(
-                                f'<b>{co}</b> %{{text}}<br>'
-                                'R&D: $%{x:.1f}B<br>'
-                                'Net Income: $%{y:.1f}B<extra></extra>'
-                            )
-                        ))
-                    sf(fig, 360).update_layout(
-                        title=dict(text="R&D Spend vs Net Income (bubble = revenue)", font=dict(size=13, color='#94a3b8')),
-                        xaxis_title="R&D ($B)",
-                        yaxis_title="Net Income ($B)"
-                    )
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                with c4:
-                    fig = go.Figure()
-                    for co in sel_companies:
-                        sub = rdf[(rdf['Company'] == co) & rdf['RD_PerEmp_M'].notna()]
-                        if sub.empty:
-                            continue
-                        fig.add_trace(go.Scatter(
-                            x=sub['Year'], y=sub['RD_PerEmp_M'], name=co,
-                            mode='lines+markers',
-                            line=dict(color=COLORS.get(co, '#818cf8'), width=2.2),
-                            marker=dict(size=7),
-                            hovertemplate=f'<b>{co}</b> %{{x}}<br>$%{{y:.3f}}M R&D/employee<extra></extra>'
-                        ))
-                    sf(fig, 360).update_layout(
-                        title=dict(text="R&D per Employee ($M) — Innovation Productivity", font=dict(size=13, color='#94a3b8')),
-                        yaxis_title="$M R&D per Employee"
-                    )
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                sec("R&D Trend & Snapshot", f"{year_range[0]}–{year_range[1]}")
-                c5, c6 = st.columns([3, 2])
-
-                with c5:
-                    fig = go.Figure()
-                    for co in sel_companies:
-                        sub = rdf[rdf['Company'] == co].sort_values('Year')
-                        if sub.empty:
-                            continue
-                        fig.add_trace(go.Scatter(
-                            x=sub['Year'], y=sub['RD_B'], name=co,
-                            mode='lines',
-                            stackgroup='one',
-                            line=dict(color=COLORS.get(co, '#818cf8'), width=0.5),
-                            fillcolor=hex_to_rgba(COLORS.get(co, '#818cf8'), 0.7),
-                            hovertemplate=f'<b>{co}</b> %{{x}}<br>$%{{y:.2f}}B<extra></extra>'
-                        ))
-                    sf(fig, 320).update_layout(
-                        title=dict(text="Combined R&D Spend — Stacked Area ($B)", font=dict(size=13, color='#94a3b8')),
-                        yaxis_title="R&D ($B)"
-                    )
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                with c6:
-                    snap_yr = rdf['Year'].max()
-                    snap = rdf[rdf['Year'] == snap_yr][['Company', 'RD_B', 'RD_Pct', 'RD_PerEmp_M']].copy()
-                    snap = snap.sort_values('RD_B', ascending=False).reset_index(drop=True)
-                    snap.columns = ['Company', 'R&D ($B)', 'R&D % Rev', 'R&D/Emp ($M)']
-                    st.markdown(
-                        f'<div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;'
-                        f'color:var(--txt3);margin-bottom:0.6rem;">'
-                        f'📋 R&D Snapshot — FY {snap_yr}</div>',
-                        unsafe_allow_html=True
-                    )
-                    st.dataframe(
-                        snap.set_index('Company').style.format({
-                            'R&D ($B)': '{:.2f}',
-                            'R&D % Rev': '{:.1f}%',
-                            'R&D/Emp ($M)': '{:.3f}',
-                        }),
-                        use_container_width=True,
-                        height=310
-                    )
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1327,25 +1117,9 @@ elif page_idx == PAGE_AI:
               </div>
             </div>""", unsafe_allow_html=True)
 
-        if 'RD_B' in ann_f.columns and ann_f['RD_B'].notna().any():
-            rd_f = ann_f[ann_f['RD_B'].notna()]
-            if not rd_f.empty:
-                top_rd = rd_f.loc[rd_f['RD_B'].idxmax()]
-                rd_pct = top_rd['RD_B'] / top_rd['Revenue_B'] * 100 if top_rd['Revenue_B'] > 0 else 0
-                st.markdown(f"""
-                <div class="insight-card" style="border-left-color:#a78bfa;">
-                  <div class="insight-title">🔬 R&D Leader — {top_rd['Company']}</div>
-                  <div class="insight-body">
-                    {top_rd['Company']} invested the most in R&D at
-                    <strong>${top_rd['RD_B']:.1f}B</strong>
-                    ({rd_pct:.1f}% of revenue) in {sel_year},
-                    signalling strong commitment to future innovation.
-                  </div>
-                </div>""", unsafe_allow_html=True)
-
         sec("Financial Snapshot", str(sel_year))
         display_cols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B',
-                                     'Employees_K', 'RD_B'] if c in ann_f.columns]
+                                     'Employees_K'] if c in ann_f.columns]
         if len(display_cols) > 1:
             st.dataframe(
                 ann_f[display_cols].set_index('Company').style.format("{:.2f}"),
