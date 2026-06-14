@@ -98,7 +98,6 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
 .sec-tag{font-size:0.58rem;color:#fff!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
 .page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;}
-/* ── Year control card: blends into dark background ── */
 .yr-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:0.85rem 1.1rem 0.6rem;}
 .yr-card-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--txt3);font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;}
 .yr-card-label .yr-icon{font-size:0.75rem;}
@@ -131,8 +130,6 @@ PL = dict(
 )
 
 # ── CONSTANTS ─────────────────────────────────────────────────────────────────
-# FIX: Meta was '#60a5fa' (same as Microsoft) — changed to '#f97316' (orange)
-# FIX: Tesla was '#f87171' (same as Google) — changed to '#fb7185' (rose)
 COLORS = {
     'Apple': '#e2e8f0', 'Microsoft': '#60a5fa', 'Google': '#f87171',
     'Amazon': '#fbbf24', 'Meta': '#f97316', 'NVIDIA': '#86efac',
@@ -274,8 +271,6 @@ def build_merged_data():
         price_df = price_df.reset_index()
 
     q_df['Quarter']  = pd.to_datetime(q_df['Quarter'])
-    # FIX: tz_localize(None) crashes on tz-naive dates (CSV) and is wrong for
-    # tz-aware dates (yfinance UTC). Use tz_convert(None) when tz-aware, else no-op.
     _dt = pd.to_datetime(price_df['Date'])
     price_df['Date'] = _dt.dt.tz_convert(None) if _dt.dt.tz is not None else _dt
     ann_df['Year']   = ann_df['Year'].astype(int)
@@ -361,10 +356,6 @@ page_idx = st.session_state.page_idx
 
 # ── PAGE HEADER HELPERS ───────────────────────────────────────────────────────────
 def page_header_range(title_html, key_suffix):
-    """
-    Pages that show TRENDS over time (CC, Stock Performance, Revenue & Earnings, Deep Analytics).
-    Returns a (yr_min, yr_max) tuple from a dual-thumb range slider.
-    """
     title_col, spacer, yr_col = st.columns([5, 0.5, 2.5])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
@@ -383,17 +374,13 @@ def page_header_range(title_html, key_suffix):
             key=f"yr_range_{key_suffix}",
         )
         st.markdown(
-            f'<div style="text-align:right;margin-top:0.15rem;">'  
+            f'<div style="text-align:right;margin-top:0.15rem;">'
             f'<span class="yr-badge">{yr[0]} – {yr[1]}</span></div></div>',
             unsafe_allow_html=True)
     return yr
 
 
 def page_header_single(title_html, key_suffix):
-    """
-    Pages that show a SINGLE YEAR snapshot (Competitive Analysis, AI Insight Engine).
-    Returns a single int year from a selectbox.
-    """
     title_col, spacer, yr_col = st.columns([5, 0.5, 2.5])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
@@ -407,12 +394,12 @@ def page_header_single(title_html, key_suffix):
         yr = st.selectbox(
             "Year",
             options=ALL_YEARS,
-            index=len(ALL_YEARS) - 1,   # default = latest year
+            index=len(ALL_YEARS) - 1,
             label_visibility="collapsed",
             key=f"yr_single_{key_suffix}",
         )
         st.markdown(
-            f'<div style="text-align:right;margin-top:0.15rem;">'  
+            f'<div style="text-align:right;margin-top:0.15rem;">'
             f'<span class="yr-badge">FY {yr}</span></div></div>',
             unsafe_allow_html=True)
     return yr
@@ -428,7 +415,7 @@ st.markdown(
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 1 — COMMAND CENTER  (year RANGE — shows trends)
+# PAGE 1 — COMMAND CENTER
 # ════════════════════════════════════════════════════════════════════
 if page_idx == PAGE_CC:
     year_range = page_header_range("🏠 Command Center", "cc")
@@ -606,13 +593,22 @@ if page_idx == PAGE_CC:
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 2 — STOCK PERFORMANCE  (year RANGE — shows historical trends)
+# PAGE 2 — STOCK PERFORMANCE
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_SP:
     year_range = page_header_range("📈 Stock Performance", "sp")
     ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
     q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
     p_f    = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
+
+    # FIX: compute Daily_Return from Price when not present (CSV-only mode)
+    if 'Daily_Return' not in p_f.columns and not p_f.empty:
+        p_f = p_f.copy()
+        p_f['Daily_Return'] = (
+            p_f.sort_values('Date')
+               .groupby('Company')['Price']
+               .pct_change() * 100
+        )
 
     tab1, tab2, tab3 = st.tabs(["📊 Price History", "📉 Volatility & Risk", "🎯 Return Analysis"])
 
@@ -687,7 +683,7 @@ elif page_idx == PAGE_SP:
                 st.dataframe(pd.DataFrame(stats_rows).set_index('Company'),
                              use_container_width=True)
         else:
-            st.info("Daily return data not available. Live data feed required.")
+            st.info("No price data available for the selected filters.")
 
     with tab3:
         fig = go.Figure()
@@ -708,7 +704,7 @@ elif page_idx == PAGE_SP:
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 3 — REVENUE & EARNINGS  (year RANGE — shows trends)
+# PAGE 3 — REVENUE & EARNINGS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_RE:
     year_range = page_header_range("💰 Revenue & Earnings", "re")
@@ -837,7 +833,7 @@ elif page_idx == PAGE_RE:
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 4 — COMPETITIVE ANALYSIS  (SINGLE year snapshot)
+# PAGE 4 — COMPETITIVE ANALYSIS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_CA:
     sel_year = page_header_single("🏆 Competitive Analysis", "ca")
@@ -938,7 +934,7 @@ elif page_idx == PAGE_CA:
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 5 — DEEP ANALYTICS  (year RANGE)
+# PAGE 5 — DEEP ANALYTICS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_DA:
     year_range = page_header_range("🔬 Deep Analytics", "da")
@@ -1029,7 +1025,7 @@ elif page_idx == PAGE_DA:
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 6 — AI INSIGHT ENGINE  (SINGLE year snapshot)
+# PAGE 6 — AI INSIGHT ENGINE
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_AI:
     sel_year = page_header_single("🤖 AI Insight Engine", "ai")
@@ -1040,7 +1036,6 @@ elif page_idx == PAGE_AI:
     if ann_f.empty:
         st.info(f"No data available for {sel_year}. Try selecting a different year.")
     else:
-        # Revenue leader
         top_rev = ann_f.loc[ann_f['Revenue_B'].idxmax()]
         st.markdown(f"""
         <div class="insight-card">
@@ -1052,7 +1047,6 @@ elif page_idx == PAGE_AI:
           </div>
         </div>""", unsafe_allow_html=True)
 
-        # Market cap leader
         if 'MarketCap_B' in ann_f.columns:
             top_mc = ann_f.loc[ann_f['MarketCap_B'].idxmax()]
             st.markdown(f"""
@@ -1064,7 +1058,6 @@ elif page_idx == PAGE_AI:
               </div>
             </div>""", unsafe_allow_html=True)
 
-        # Most profitable
         if 'NetIncome_B' in ann_f.columns:
             top_ni = ann_f.loc[ann_f['NetIncome_B'].idxmax()]
             margin = top_ni['NetIncome_B'] / top_ni['Revenue_B'] * 100 if top_ni['Revenue_B'] > 0 else 0
@@ -1078,7 +1071,6 @@ elif page_idx == PAGE_AI:
               </div>
             </div>""", unsafe_allow_html=True)
 
-        # Margin table
         sec("Profitability Snapshot", str(sel_year))
         snap = ann_f.copy()
         snap['Net Margin %'] = (snap['NetIncome_B'] / snap['Revenue_B'].replace(0, np.nan) * 100).round(1)
@@ -1137,7 +1129,6 @@ elif page_idx == PAGE_LD:
             try:
                 intraday_df = get_intraday_data(ticker)
                 if not intraday_df.empty:
-                    # FIX: safe column-or-index access (DataFrame.get() misuse removed)
                     if 'Datetime' in intraday_df.columns:
                         x_vals = intraday_df['Datetime']
                     else:
