@@ -586,6 +586,8 @@ if page_idx == PAGE_CC:
                 title=dict(text=f"Revenue Treemap {t_yr}", font=dict(size=13, color='#94a3b8')),
                 coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Sector data not available in current dataset.")
     with c2:
         emp_sl, e_yr = get_latest_slice(ann_f, sel_companies)
         if not emp_sl.empty:
