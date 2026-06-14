@@ -5,9 +5,9 @@
 
 <div align="center">
 
-### 🌐 [**LIVE DEMO → market-nexus-myds7qdhci8mnmhvpylbmw.streamlit.app**](https://market-nexus-myds7qdhci8mnmhvpylbmw.streamlit.app)
+### 🌐 [**LIVE DEMO → bigtech-alpha.streamlit.app**](https://bigtech-alpha.streamlit.app)
 
-[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-Open%20App-00d4ff?style=for-the-badge&logoColor=white)](https://market-nexus-myds7qdhci8mnmhvpylbmw.streamlit.app)
+[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-Open%20App-00d4ff?style=for-the-badge&logoColor=white)](https://bigtech-alpha.streamlit.app)
 [![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![yfinance](https://img.shields.io/badge/Data-yfinance-00C244?style=for-the-badge)](https://github.com/ranaroussi/yfinance)
