@@ -5,23 +5,35 @@
 ║             NVIDIA · Tesla · Netflix                             ║
 ║  Run: streamlit run nexus.py                                     ║
 ╚══════════════════════════════════════════════════════════════════╝
+
+Architecture
+────────────
+nexus.py                      ← this file: config, data loading, sidebar, router
+pages/
+  page_command_center.py      ← Page 1
+  page_stock_performance.py   ← Page 2
+  page_revenue_earnings.py    ← Page 3
+  page_competitive_analysis.py← Page 4
+  page_deep_analytics.py      ← Page 5
+  page_ai_insights.py         ← Page 6
+nexus_ld_page.py              ← Page 7  (Live Dashboard)
+live_data.py                  ← yfinance data layer
+constants.py                  ← shared constants
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
 from datetime import datetime
 from pathlib import Path
-from scipy import stats as scipy_stats
 
 st.set_page_config(
     page_title="MARKET NEXUS", page_icon="🚀",
     layout="wide", initial_sidebar_state="expanded"
 )
 
+# ── GLOBAL CSS (shared across all pages) ─────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
@@ -116,11 +128,9 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .insight-card:hover{transform:translateX(6px);box-shadow:var(--shadow-lg);}
 .insight-title{font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:700;color:var(--txt);margin-bottom:0.5rem;}
 .insight-body{font-size:0.88rem;color:var(--txt2);line-height:1.8;}
-/* ── LIVE PULSE DOT ──────────────────────────────────────────────── */
 .live{display:inline-block;width:8px;height:8px;background:#34d399;border-radius:50%;margin-right:6px;vertical-align:middle;animation:pulse-ring 2s ease infinite;}
 .dead{display:inline-block;width:8px;height:8px;background:#64748b;border-radius:50%;margin-right:6px;vertical-align:middle;}
 @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(52,211,153,0.5);}70%{box-shadow:0 0 0 8px rgba(52,211,153,0);}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}}
-/* ── PRICE CARDS ─────────────────────────────────────────────────── */
 .price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
 .price-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1.2rem 1.4rem 1rem;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:all 0.25s;}
 .price-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);}
@@ -131,7 +141,6 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .price-card-chg{font-family:'JetBrains Mono',monospace;font-size:0.72rem;font-weight:700;}
 .price-card-vol{font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--txt3);margin-top:0.35rem;}
 .price-card-badge{position:absolute;top:0.9rem;right:0.9rem;font-size:0.52rem;padding:0.18rem 0.6rem;border-radius:100px;font-weight:700;}
-/* ── COMPARISON TABLE ─────────────────────────────────────────────── */
 .cmp-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;box-shadow:var(--shadow);}
 .cmp-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
 .cmp-table thead tr{background:rgba(129,140,248,0.08);border-bottom:1px solid var(--border2);}
@@ -187,14 +196,16 @@ if "page_idx" not in st.session_state:
     st.session_state.page_idx = 0
 
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
+# ── SHARED HELPERS ────────────────────────────────────────────────────────────
 def hex_to_rgba(h, a=0.15):
+    """Convert a CSS hex colour to rgba() string with the given alpha."""
     h = h.lstrip('#')
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f'rgba({r},{g},{b},{a})'
 
 
 def sf(fig, h=360, legend=True):
+    """Apply the shared dark Plotly theme to a figure and set its height."""
     kw = dict(**PL, height=h)
     if not legend:
         kw['showlegend'] = False
@@ -203,6 +214,7 @@ def sf(fig, h=360, legend=True):
 
 
 def sec(title, tag="", closed=False):
+    """Render a styled horizontal section divider with an optional tag pill."""
     tag_cls = 'sec-tag closed' if closed else 'sec-tag'
     t = f'<div class="{tag_cls}">{tag}</div>' if tag else ''
     st.markdown(
@@ -212,6 +224,7 @@ def sec(title, tag="", closed=False):
 
 
 def nav_to(idx):
+    """Navigate to a page by index and trigger a Streamlit rerun."""
     st.session_state.page_idx = idx
 
 
@@ -238,6 +251,7 @@ except ImportError:
 # ── DATA LOADERS ──────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_csv():
+    """Load the three bundled CSV datasets from the repo root."""
     base = Path(__file__).parent
     q = pd.read_csv(base / "quarterly_revenue.csv", parse_dates=["Quarter"])
     a = pd.read_csv(base / "annual_metrics.csv")
@@ -287,6 +301,7 @@ def load_live_fundamentals():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def build_merged_data():
+    """Merge live yfinance data with bundled CSVs; live data wins on overlap."""
     q_csv, ann_csv, price_csv = load_csv()
     live_ann = load_live_annual()
     live_q   = load_live_quarterly()
@@ -297,7 +312,6 @@ def build_merged_data():
         ann_df['Year']        = ann_df['Year'].astype(int)
         ann_csv_typed         = ann_csv.copy()
         ann_csv_typed['Year'] = ann_csv_typed['Year'].astype(int)
-
         ghost_cols = [
             c for c in ann_csv_typed.columns
             if c not in ('Company', 'Year')
@@ -305,14 +319,10 @@ def build_merged_data():
             and ann_df[c].isna().any()
             and ann_csv_typed[c].notna().any()
         ]
-
         if ghost_cols:
             csv_patch = ann_csv_typed[['Company', 'Year'] + ghost_cols].copy()
             ann_df = ann_df.merge(
-                csv_patch,
-                on=['Company', 'Year'],
-                how='left',
-                suffixes=('', '_csv')
+                csv_patch, on=['Company', 'Year'], how='left', suffixes=('', '_csv')
             )
             for col in ghost_cols:
                 csv_col = f'{col}_csv'
@@ -351,6 +361,7 @@ fund_df = load_live_fundamentals()
 
 
 def best_common_year(df, all_cos=None):
+    """Return the latest year for which ≥50 % of the selected companies have data."""
     if all_cos is None:
         all_cos = ALL_COMPANIES
     sub = df[df['Company'].isin(all_cos)]
@@ -364,6 +375,7 @@ def best_common_year(df, all_cos=None):
 
 
 def get_latest_slice(df, companies, fallback_year=None):
+    """Return (slice_df, year) for the best common year in the given companies."""
     if df.empty:
         return pd.DataFrame(), fallback_year or 2025
     sub = df[df['Company'].isin(companies)]
@@ -379,6 +391,14 @@ SLIDER_MAX = COMMON_LATEST_YEAR
 if SLIDER_MIN >= SLIDER_MAX:
     SLIDER_MAX = SLIDER_MIN + 1
 ALL_YEARS = list(range(SLIDER_MIN, SLIDER_MAX + 1))
+
+
+# ── SHARED HELPER BUNDLE (passed into every page module) ─────────────────────
+_HELPERS = dict(
+    sec=sec, sf=sf, hex_to_rgba=hex_to_rgba,
+    get_latest_slice=get_latest_slice,
+    best_common_year=best_common_year,
+)
 
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -406,7 +426,7 @@ with st.sidebar:
         sel_companies = ALL_COMPANIES
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    data_src = "Live Data" if (_live_ok and not ann_df.empty) else "CSV Fallback"
+    data_src     = "Live Data" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     price_latest = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
     st.markdown(
         f"<div style='font-size:0.6rem;opacity:0.5;line-height:2;'>"
@@ -416,7 +436,7 @@ with st.sidebar:
         f"📈 Prices to: {price_latest}<br>"
         f"🗂 {len(q_df)+len(ann_df)+len(price_df):,} records"
         f"</div>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 page_idx = st.session_state.page_idx
@@ -424,22 +444,18 @@ page_idx = st.session_state.page_idx
 
 # ── PAGE HEADER HELPERS ───────────────────────────────────────────────────────
 def page_header_range(title_html, key_suffix):
-    title_col, spacer, yr_col = st.columns([5, 0.5, 2.5])
+    """Render a page title + year-range slider; returns (start_year, end_year)."""
+    title_col, _, yr_col = st.columns([5, 0.5, 2.5])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
     with yr_col:
         st.markdown(
-            '<div class="yr-card">'
-            '<div class="yr-card-label">'
-            '<span class="yr-icon">📅</span> Year Range'
-            '</div>',
+            '<div class="yr-card"><div class="yr-card-label">'
+            '<span class="yr-icon">📅</span> Year Range</div>',
             unsafe_allow_html=True)
         yr = st.slider(
-            "Year Range",
-            SLIDER_MIN, SLIDER_MAX,
-            (SLIDER_MIN, SLIDER_MAX),
-            label_visibility="collapsed",
-            key=f"yr_range_{key_suffix}",
+            "Year Range", SLIDER_MIN, SLIDER_MAX, (SLIDER_MIN, SLIDER_MAX),
+            label_visibility="collapsed", key=f"yr_range_{key_suffix}",
         )
         st.markdown(
             f'<div style="display:flex;justify-content:flex-end;margin-top:0.1rem;">'
@@ -449,22 +465,18 @@ def page_header_range(title_html, key_suffix):
 
 
 def page_header_single(title_html, key_suffix):
-    title_col, spacer, yr_col = st.columns([5, 0.5, 2.5])
+    """Render a page title + single-year selector; returns the selected year."""
+    title_col, _, yr_col = st.columns([5, 0.5, 2.5])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
     with yr_col:
         st.markdown(
-            '<div class="yr-card">'
-            '<div class="yr-card-label">'
-            '<span class="yr-icon">📅</span> Select Year'
-            '</div>',
+            '<div class="yr-card"><div class="yr-card-label">'
+            '<span class="yr-icon">📅</span> Select Year</div>',
             unsafe_allow_html=True)
         yr = st.selectbox(
-            "Year",
-            options=ALL_YEARS,
-            index=len(ALL_YEARS) - 1,
-            label_visibility="collapsed",
-            key=f"yr_single_{key_suffix}",
+            "Year", options=ALL_YEARS, index=len(ALL_YEARS) - 1,
+            label_visibility="collapsed", key=f"yr_single_{key_suffix}",
         )
         st.markdown(
             f'<div style="display:flex;justify-content:flex-end;margin-top:0.1rem;">'
@@ -478,686 +490,48 @@ ticker_syms = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX"]
 ticker_html = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in ticker_syms * 2])
 st.markdown(
     f'<div class="ticker-wrap"><div class="ticker-inner">{ticker_html} &nbsp;&nbsp; {ticker_html}</div></div>',
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 
 # ════════════════════════════════════════════════════════════════════
-# PAGE 1 — COMMAND CENTER
+# PAGE ROUTER — each branch is a single function call
 # ════════════════════════════════════════════════════════════════════
 if page_idx == PAGE_CC:
+    from pages.page_command_center import render_cc
     year_range = page_header_range("🏠 Command Center", "cc")
+    render_cc(
+        ann_df, q_df, price_df, fund_df,
+        sel_companies, year_range,
+        COMMON_LATEST_YEAR, COLORS, PL,
+        **_HELPERS,
+    )
 
-    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
-    q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
-    p_f    = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
-    FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
-
-    st.markdown("""
-    <div class="hero">
-      <div style="position:relative;z-index:1;">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;opacity:0.8;margin-bottom:0.8rem;">⚡ Live Big Tech Intelligence Platform</div>
-        <p class="hero-title">MARKET<br>NEXUS</p>
-        <p class="hero-sub">
-          Real-time financial intelligence across
-          <strong>Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix</strong>.
-        </p>
-        <div class="hero-chips">
-          <span class="chip">📊 Live Earnings</span>
-          <span class="chip">📈 Stock History</span>
-          <span class="chip">🏆 Competitive Intel</span>
-          <span class="chip">💡 AI Insights</span>
-          <span class="chip">📡 Live Prices</span>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if not fund_df.empty and not fund_df[fund_df['Company'].isin(sel_companies)].empty:
-        kpi_cos     = fund_df[fund_df['Company'].isin(sel_companies)]
-        total_rev   = kpi_cos['revenue_B'].sum()
-        total_mcap  = kpi_cos['marketCap_B'].sum()
-        top_row     = kpi_cos.loc[kpi_cos['marketCap_B'].idxmax()]
-        top_mcap_co = top_row['Company']
-        top_mcap    = top_row['marketCap_B']
-        nvda_row    = kpi_cos[kpi_cos['Company'] == 'NVIDIA']
-        nvda_ni     = nvda_row['netIncome_B'].values[0] if not nvda_row.empty else 0
-        data_label  = "Live Data"
-    else:
-        latest_sl, lyr = get_latest_slice(ann_f, sel_companies)
-        if latest_sl.empty:
-            total_rev, total_mcap, top_mcap_co, top_mcap, nvda_ni = 0, 0, "N/A", 0, 0
-            data_label = "No data"
-        else:
-            total_rev   = latest_sl['Revenue_B'].sum()
-            total_mcap  = latest_sl['MarketCap_B'].sum()
-            top_idx     = latest_sl['MarketCap_B'].idxmax()
-            top_mcap_co = latest_sl.loc[top_idx, 'Company']
-            top_mcap    = latest_sl.loc[top_idx, 'MarketCap_B']
-            nvda_sl     = latest_sl[latest_sl['Company'] == 'NVIDIA']
-            nvda_ni     = nvda_sl['NetIncome_B'].values[0] if not nvda_sl.empty else 0
-            data_label  = f"CSV · {lyr}"
-
-    st.markdown(f"""
-    <div class="kpi-row">
-      <div class="kpi"><div class="kpi-stripe"></div><div class="kpi-icon">💰</div>
-        <div class="kpi-label">Combined Revenue (TTM)</div>
-        <div class="kpi-val">${total_rev/1000:.2f}T</div>
-        <div class="kpi-sub">{len(sel_companies)} companies · {data_label}</div>
-        <div class="kpi-badge up">↑ LIVE</div></div>
-      <div class="kpi"><div class="kpi-stripe orange"></div><div class="kpi-icon">🏦</div>
-        <div class="kpi-label">Combined Market Cap</div>
-        <div class="kpi-val orange">${total_mcap/1000:.1f}T</div>
-        <div class="kpi-sub">{data_label}</div>
-        <div class="kpi-badge up">↑ LIVE</div></div>
-      <div class="kpi"><div class="kpi-stripe green"></div><div class="kpi-icon">🥇</div>
-        <div class="kpi-label">Largest by Market Cap</div>
-        <div class="kpi-val green">{top_mcap_co}</div>
-        <div class="kpi-sub">${top_mcap:,.0f}B cap</div>
-        <div class="kpi-badge flat">LIVE</div></div>
-      <div class="kpi"><div class="kpi-stripe purple"></div><div class="kpi-icon">⚡</div>
-        <div class="kpi-label">NVIDIA Net Income (TTM)</div>
-        <div class="kpi-val purple">${nvda_ni:.1f}B</div>
-        <div class="kpi-sub">AI boom · {data_label}</div>
-        <div class="kpi-badge up">↑ LIVE</div></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    sec("Revenue Race & Market Cap", f"{year_range[0]}–{year_range[1]}")
-    c1, c2 = st.columns(2)
-    with c1:
-        fig = go.Figure()
-        for co in sel_companies:
-            sub = q_f[q_f['Company'] == co].sort_values('Quarter')
-            if sub.empty:
-                continue
-            fig.add_trace(go.Scatter(x=sub['Quarter'], y=sub['Revenue_B'], name=co, mode='lines',
-                line=dict(color=COLORS.get(co, '#818cf8'), width=2.5),
-                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>${{y:.1f}}B<extra></extra>'))
-        sf(fig, 350).update_layout(
-            title=dict(text="Quarterly Revenue ($B)", font=dict(size=13, color='#94a3b8')),
-            yaxis_title="Revenue ($B)")
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-    with c2:
-        if not ann_f.empty:
-            mc_data = ann_f.pivot_table(index='Year', columns='Company', values='MarketCap_B', aggfunc='first').fillna(0)
-            fig = go.Figure()
-            for co in [c for c in sel_companies if c in mc_data.columns]:
-                fig.add_trace(go.Bar(x=mc_data.index, y=mc_data[co], name=co,
-                    marker_color=COLORS.get(co, '#818cf8'), opacity=0.88,
-                    hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:,.0f}}B<extra></extra>'))
-            fig.update_layout(barmode='group')
-            sf(fig, 350).update_layout(
-                title=dict(text="Market Cap by Year ($B)", font=dict(size=13, color='#94a3b8')),
-                yaxis_title="Market Cap ($B)")
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No annual data available for the selected filters.")
-
-    sec("Stock Returns & Profitability", f"{year_range[0]}–{year_range[1]}")
-    c1, c2 = st.columns([3, 2])
-    with c1:
-        fig = go.Figure()
-        for co in sel_companies:
-            sub = p_f[p_f['Company'] == co].sort_values('Date')
-            if sub.empty or sub['Price'].iloc[0] == 0:
-                continue
-            base = sub['Price'].iloc[0]
-            fig.add_trace(go.Scatter(x=sub['Date'], y=sub['Price'] / base * 100, name=co, mode='lines',
-                line=dict(color=COLORS.get(co, '#818cf8'), width=2),
-                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>%{{y:.0f}}<extra></extra>'))
-        fig.add_hline(y=100, line_dash='dot', line_color='rgba(255,255,255,0.1)')
-        sf(fig, 340).update_layout(
-            title=dict(text="Normalised Stock Performance (Base=100)", font=dict(size=13, color='#94a3b8')),
-            yaxis_title="Indexed Return")
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-    with c2:
-        margin_sl, m_yr = get_latest_slice(ann_f, sel_companies)
-        if not margin_sl.empty:
-            margin_sl = margin_sl.copy()
-            margin_sl['Margin'] = (margin_sl['NetIncome_B'] / margin_sl['Revenue_B'].replace(0, np.nan) * 100).round(1).fillna(0)
-            margin_sl = margin_sl.sort_values('Margin')
-            fig = go.Figure(go.Bar(
-                x=margin_sl['Margin'], y=margin_sl['Company'], orientation='h',
-                marker=dict(color=margin_sl['Margin'],
-                    colorscale=[[0, '#f87171'], [0.4, '#fb923c'], [1, '#34d399']], line=dict(width=0)),
-                text=[f"{v:.1f}%" for v in margin_sl['Margin']], textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Margin: %{x:.1f}%<extra></extra>'))
-            sf(fig, 340, legend=False).update_layout(
-                title=dict(text=f"Net Profit Margin {m_yr}", font=dict(size=13, color='#94a3b8')),
-                xaxis_title="Net Margin %")
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No margin data available for the selected filters.")
-
-    sec("Revenue Distribution & Headcount", f"{year_range[0]}–{year_range[1]}")
-    c1, c2 = st.columns(2)
-    with c1:
-        treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies)
-        if not treemap_sl.empty and 'Sector' in treemap_sl.columns:
-            fig = px.treemap(treemap_sl, path=['Sector', 'Company'], values='Revenue_B',
-                color='NetIncome_B',
-                color_continuous_scale=[[0, '#f87171'], [0.5, '#1e293b'], [1, '#34d399']],
-                hover_data={'Revenue_B': ':.1f', 'NetIncome_B': ':.1f'})
-            fig.update_traces(textfont_size=13, textfont_color='#e2e8f0',
-                hovertemplate='<b>%{label}</b><br>Revenue: $%{value:.1f}B<extra></extra>')
-            fig.update_layout(**PL, height=330,
-                title=dict(text=f"Revenue Treemap {t_yr}", font=dict(size=13, color='#94a3b8')),
-                coloraxis_showscale=False)
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("Sector data not available in current dataset.")
-    with c2:
-        emp_sl, e_yr = get_latest_slice(ann_f, sel_companies)
-        if not emp_sl.empty:
-            emp_sl = emp_sl.copy()
-            emp_sl['RevPerEmp'] = (emp_sl['Revenue_B'] * 1e9 / (emp_sl['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2).fillna(0)
-            emp_sl = emp_sl.sort_values('RevPerEmp')
-            fig = go.Figure(go.Bar(
-                x=emp_sl['RevPerEmp'], y=emp_sl['Company'], orientation='h',
-                marker=dict(color=[COLORS.get(c, '#818cf8') for c in emp_sl['Company']], line=dict(width=0)),
-                text=[f"${v:.2f}M" for v in emp_sl['RevPerEmp']], textposition='outside',
-                hovertemplate='<b>%{y}</b><br>$%{x:.2f}M per employee<extra></extra>'))
-            sf(fig, 330, legend=False).update_layout(
-                title=dict(text=f"Revenue per Employee {e_yr} ($M)", font=dict(size=13, color='#94a3b8')),
-                xaxis_title="$M per Employee")
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No employee data available for the selected filters.")
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 2 — STOCK PERFORMANCE
-# ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_SP:
+    from pages.page_stock_performance import render_sp
     year_range = page_header_range("📈 Stock Performance", "sp")
-    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
-    q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
-    p_f    = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
+    render_sp(price_df, ann_df, sel_companies, year_range, COLORS, PL, sec, sf)
 
-    if 'Daily_Return' not in p_f.columns and not p_f.empty:
-        p_f = p_f.copy()
-        p_f['Daily_Return'] = (
-            p_f.sort_values('Date')
-               .groupby('Company')['Price']
-               .pct_change() * 100
-        )
-
-    tab1, tab2, tab3 = st.tabs(["📊 Price History", "📉 Volatility & Risk", "🎯 Return Analysis"])
-
-    with tab1:
-        if sel_companies:
-            co1 = st.selectbox("Company", sel_companies, key='sp1')
-            sub = p_f[p_f['Company'] == co1].sort_values('Date').copy()
-            if not sub.empty:
-                sub['MA50']  = sub['Price'].rolling(50).mean()
-                sub['MA200'] = sub['Price'].rolling(200).mean()
-                sub['Upper'] = sub['Price'].rolling(20).mean() + 2 * sub['Price'].rolling(20).std()
-                sub['Lower'] = sub['Price'].rolling(20).mean() - 2 * sub['Price'].rolling(20).std()
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=sub['Date'], y=sub['Upper'], name='BB Upper',
-                    line=dict(color='rgba(129,140,248,0.2)', width=1, dash='dot'), showlegend=False))
-                fig.add_trace(go.Scatter(x=sub['Date'], y=sub['Lower'], name='BB Lower', fill='tonexty',
-                    fillcolor='rgba(129,140,248,0.06)',
-                    line=dict(color='rgba(129,140,248,0.2)', width=1, dash='dot'), showlegend=False))
-                fig.add_trace(go.Scatter(x=sub['Date'], y=sub['Price'], name='Price',
-                    line=dict(color=COLORS.get(co1, '#818cf8'), width=2.5),
-                    hovertemplate='<b>' + co1 + '</b><br>%{x|%b %d, %Y}<br>$%{y:.2f}<extra></extra>'))
-                fig.add_trace(go.Scatter(x=sub['Date'], y=sub['MA50'], name='MA50',
-                    line=dict(color='#fbbf24', width=1.5, dash='dot')))
-                fig.add_trace(go.Scatter(x=sub['Date'], y=sub['MA200'], name='MA200',
-                    line=dict(color='#a78bfa', width=1.5, dash='dash')))
-                sf(fig, 420).update_layout(
-                    title=dict(text=f"{co1} — Price + Bollinger Bands + MAs", font=dict(size=13, color='#94a3b8')),
-                    yaxis_title="Price (USD)")
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-                if 'Volume_M' in sub.columns:
-                    fig2 = go.Figure(go.Bar(x=sub['Date'], y=sub['Volume_M'],
-                        marker_color=COLORS.get(co1, '#818cf8'), opacity=0.35, name='Volume'))
-                    sf(fig2, 120, legend=False).update_layout(yaxis_title="Volume (M)", margin=dict(t=10))
-                    st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("No price data available for the selected filters.")
-
-    with tab2:
-        if 'Daily_Return' in p_f.columns and not p_f.empty:
-            fig = go.Figure()
-            for co in sel_companies:
-                sub = p_f[p_f['Company'] == co].sort_values('Date')
-                if sub.empty:
-                    continue
-                vol = sub['Daily_Return'].rolling(30).std()
-                fig.add_trace(go.Scatter(x=sub['Date'], y=vol, name=co, mode='lines',
-                    line=dict(color=COLORS.get(co, '#818cf8'), width=1.8),
-                    hovertemplate=f'<b>{co}</b> %{{x|%b %Y}}<br>Vol: %{{y:.2f}}%<extra></extra>'))
-            sf(fig, 340).update_layout(
-                title=dict(text="30-Day Rolling Volatility", font=dict(size=13, color='#94a3b8')),
-                yaxis_title="Volatility (%)")
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-            stats_rows = []
-            for co in sel_companies:
-                sub = p_f[p_f['Company'] == co].sort_values('Date')
-                if len(sub) < 2:
-                    continue
-                ret = sub['Daily_Return'].dropna()
-                if ret.empty:
-                    continue
-                stats_rows.append({
-                    'Company': co,
-                    'Ann. Return %': round(ret.mean() * 252, 2),
-                    'Ann. Volatility %': round(ret.std() * np.sqrt(252), 2),
-                    'Sharpe (rf=0)': round(ret.mean() / ret.std() * np.sqrt(252), 2) if ret.std() > 0 else 0,
-                    'Max Drawdown %': round((sub['Price'] / sub['Price'].cummax() - 1).min() * 100, 2),
-                    'Skewness': round(float(scipy_stats.skew(ret)), 3),
-                    'Kurtosis': round(float(scipy_stats.kurtosis(ret)), 3),
-                })
-            if stats_rows:
-                st.dataframe(pd.DataFrame(stats_rows).set_index('Company'), use_container_width=True)
-            else:
-                st.info("Not enough price data to compute risk statistics.")
-        else:
-            st.info("No price data available for the selected filters.")
-
-    with tab3:
-        fig = go.Figure()
-        for co in sel_companies:
-            sub = p_f[p_f['Company'] == co].sort_values('Date')
-            if sub.empty or sub['Price'].iloc[0] == 0:
-                continue
-            total_ret = (sub['Price'].iloc[-1] / sub['Price'].iloc[0] - 1) * 100
-            fig.add_trace(go.Bar(
-                x=[co], y=[total_ret], name=co,
-                marker_color=COLORS.get(co, '#818cf8'),
-                text=[f"{total_ret:.1f}%"], textposition='outside',
-                hovertemplate=f'<b>{co}</b><br>Return: %{{y:.1f}}%<extra></extra>'))
-        sf(fig, 340, legend=False).update_layout(
-            title=dict(text=f"Total Return {year_range[0]}–{year_range[1]}", font=dict(size=13, color='#94a3b8')),
-            yaxis_title="Total Return (%)")
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 3 — REVENUE & EARNINGS
-# ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_RE:
+    from pages.page_revenue_earnings import render_re
     year_range = page_header_range("💰 Revenue & Earnings", "re")
-    ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
-    q_f   = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
+    render_re(ann_df, q_df, sel_companies, year_range, COLORS, PL, sec, sf, hex_to_rgba)
 
-    tab1, tab2 = st.tabs(["📊 Revenue Trends", "💵 Earnings & Margins"])
-
-    with tab1:
-        sec("Annual Revenue Growth", f"{year_range[0]}–{year_range[1]}")
-        fig = go.Figure()
-        for co in sel_companies:
-            sub = ann_f[ann_f['Company'] == co].sort_values('Year')
-            if sub.empty:
-                continue
-            fig.add_trace(go.Scatter(
-                x=sub['Year'], y=sub['Revenue_B'], name=co, mode='lines+markers',
-                line=dict(color=COLORS.get(co, '#818cf8'), width=2.5),
-                marker=dict(size=7),
-                hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'))
-        sf(fig, 380).update_layout(
-            title=dict(text="Annual Revenue ($B) — All Companies", font=dict(size=13, color='#94a3b8')),
-            yaxis_title="Revenue ($B)")
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-        sec("Quarterly Revenue — Combined", f"{year_range[0]}–{year_range[1]}")
-        fig2 = go.Figure()
-        for co in sel_companies:
-            sub = q_f[q_f['Company'] == co].sort_values('Quarter')
-            if sub.empty:
-                continue
-            fig2.add_trace(go.Bar(
-                x=sub['Quarter'], y=sub['Revenue_B'], name=co,
-                marker_color=COLORS.get(co, '#818cf8'), opacity=0.85,
-                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>${{y:.1f}}B<extra></extra>'))
-        fig2.update_layout(barmode='group')
-        sf(fig2, 340).update_layout(
-            title=dict(text="Quarterly Revenue ($B) — All Companies", font=dict(size=13, color='#94a3b8')),
-            yaxis_title="Revenue ($B)")
-        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-
-        sec("Quarterly Revenue — Per Company", f"{year_range[0]}–{year_range[1]}")
-        active_cos = [co for co in sel_companies if not q_f[q_f['Company'] == co].empty]
-        if active_cos:
-            pairs = [active_cos[i:i+2] for i in range(0, len(active_cos), 2)]
-            for pair in pairs:
-                cols = st.columns(len(pair))
-                for col, co in zip(cols, pair):
-                    with col:
-                        sub = q_f[q_f['Company'] == co].sort_values('Quarter').copy()
-                        color = COLORS.get(co, '#818cf8')
-                        fill_color = hex_to_rgba(color, 0.12)
-                        fig = go.Figure()
-                        fig.add_trace(go.Scatter(
-                            x=sub['Quarter'], y=sub['Revenue_B'],
-                            name=co, mode='lines+markers',
-                            line=dict(color=color, width=2.5),
-                            marker=dict(size=7, color=color, line=dict(color='#0f1117', width=1.5)),
-                            fill='tozeroy', fillcolor=fill_color,
-                            hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>${{y:.1f}}B<extra></extra>'
-                        ))
-                        if len(sub) >= 3:
-                            x_num = np.arange(len(sub))
-                            slope, intercept, *_ = scipy_stats.linregress(x_num, sub['Revenue_B'].values)
-                            trend = slope * x_num + intercept
-                            fig.add_trace(go.Scatter(
-                                x=sub['Quarter'], y=trend, mode='lines', name='Trend',
-                                line=dict(color='rgba(255,255,255,0.18)', width=1.5, dash='dot'),
-                                showlegend=False
-                            ))
-                        sf(fig, 280, legend=False).update_layout(
-                            title=dict(text=f"{co} — Quarterly Revenue", font=dict(size=12, color=color)),
-                            yaxis_title="$B", margin=dict(l=10, r=10, t=40, b=10)
-                        )
-                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No quarterly data available for the selected filters.")
-
-    with tab2:
-        sec("Net Income vs Revenue", f"{year_range[0]}–{year_range[1]}")
-        c1, c2 = st.columns(2)
-        with c1:
-            fig = go.Figure()
-            for co in sel_companies:
-                sub = ann_f[ann_f['Company'] == co].sort_values('Year')
-                if sub.empty:
-                    continue
-                fig.add_trace(go.Scatter(
-                    x=sub['Year'], y=sub['NetIncome_B'], name=co, mode='lines+markers',
-                    line=dict(color=COLORS.get(co, '#818cf8'), width=2),
-                    marker=dict(size=6),
-                    hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'))
-            sf(fig, 340).update_layout(
-                title=dict(text="Net Income ($B)", font=dict(size=13, color='#94a3b8')),
-                yaxis_title="Net Income ($B)")
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        with c2:
-            margin_data = []
-            for co in sel_companies:
-                sub = ann_f[ann_f['Company'] == co].sort_values('Year')
-                if sub.empty:
-                    continue
-                sub = sub.copy()
-                sub['Margin'] = (sub['NetIncome_B'] / sub['Revenue_B'].replace(0, np.nan) * 100).round(1)
-                for _, row in sub.iterrows():
-                    margin_data.append({'Company': co, 'Year': row['Year'], 'Margin': row['Margin']})
-            if margin_data:
-                mdf = pd.DataFrame(margin_data)
-                fig = go.Figure()
-                for co in sel_companies:
-                    sub = mdf[mdf['Company'] == co]
-                    if sub.empty:
-                        continue
-                    fig.add_trace(go.Scatter(
-                        x=sub['Year'], y=sub['Margin'], name=co, mode='lines+markers',
-                        line=dict(color=COLORS.get(co, '#818cf8'), width=2),
-                        hovertemplate=f'<b>{co}</b> %{{x}}<br>Margin: %{{y:.1f}}%<extra></extra>'))
-                sf(fig, 340).update_layout(
-                    title=dict(text="Net Profit Margin (%)", font=dict(size=13, color='#94a3b8')),
-                    yaxis_title="Net Margin %")
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("No margin data available for the selected filters.")
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 4 — COMPETITIVE ANALYSIS
-# ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_CA:
+    from pages.page_competitive_analysis import render_ca
     sel_year = page_header_single("🏆 Competitive Analysis", "ca")
-    ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'] == sel_year)]
+    render_ca(ann_df, sel_companies, sel_year, COLORS, PL, sec, sf, hex_to_rgba)
 
-    tab1, tab2, tab3 = st.tabs(["🥊 Head-to-Head", "📊 Market Share", "⚡ Efficiency"])
-
-    with tab1:
-        sec("Key Metrics Comparison", str(sel_year))
-        if not ann_f.empty:
-            display_cols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B',
-                                         'Employees_K', 'PE_Ratio', 'EPS'] if c in ann_f.columns]
-            st.dataframe(
-                ann_f[display_cols].set_index('Company').style.format("{:.2f}"),
-                use_container_width=True)
-
-            sec("Radar Chart", str(sel_year))
-            metrics = [c for c in ['Revenue_B', 'NetIncome_B', 'MarketCap_B'] if c in ann_f.columns]
-            if metrics:
-                fig = go.Figure()
-                for _, row in ann_f.iterrows():
-                    vals = [row.get(m, 0) for m in metrics]
-                    max_vals = [ann_f[m].max() for m in metrics]
-                    norm = [v / mx * 100 if mx > 0 else 0 for v, mx in zip(vals, max_vals)]
-                    fig.add_trace(go.Scatterpolar(
-                        r=norm + [norm[0]], theta=metrics + [metrics[0]],
-                        fill='toself', name=row['Company'],
-                        line=dict(color=COLORS.get(row['Company'], '#818cf8')),
-                        fillcolor=hex_to_rgba(COLORS.get(row['Company'], '#818cf8'), 0.1)))
-                sf(fig, 420).update_layout(
-                    polar=dict(radialaxis=dict(visible=True, range=[0, 100],
-                               gridcolor='rgba(255,255,255,0.08)', color='#64748b')),
-                    title=dict(text=f"Normalised Metrics Radar {sel_year}", font=dict(size=13, color='#94a3b8')))
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info(f"No data available for {sel_year}.")
-
-    with tab2:
-        sec("Revenue & Market Cap Share", str(sel_year))
-        if not ann_f.empty:
-            c1, c2 = st.columns(2)
-            with c1:
-                fig = go.Figure(go.Pie(
-                    labels=ann_f['Company'], values=ann_f['Revenue_B'],
-                    hole=0.45, textinfo='label+percent',
-                    marker=dict(colors=[COLORS.get(c, '#818cf8') for c in ann_f['Company']],
-                                line=dict(color='#0f1117', width=2))))
-                sf(fig, 340, legend=False).update_layout(
-                    title=dict(text=f"Revenue Share {sel_year}", font=dict(size=13, color='#94a3b8')))
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-            with c2:
-                if 'MarketCap_B' in ann_f.columns:
-                    fig = go.Figure(go.Pie(
-                        labels=ann_f['Company'], values=ann_f['MarketCap_B'],
-                        hole=0.45, textinfo='label+percent',
-                        marker=dict(colors=[COLORS.get(c, '#818cf8') for c in ann_f['Company']],
-                                    line=dict(color='#0f1117', width=2))))
-                    sf(fig, 340, legend=False).update_layout(
-                        title=dict(text=f"Market Cap Share {sel_year}", font=dict(size=13, color='#94a3b8')))
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info("Market cap data not available for the selected year.")
-        else:
-            st.info(f"No data for {sel_year}.")
-
-    with tab3:
-        sec("Efficiency Metrics", str(sel_year))
-        if not ann_f.empty:
-            eff = ann_f.copy()
-            if 'Employees_K' in eff.columns:
-                eff['RevPerEmp'] = (eff['Revenue_B'] * 1e9 / (eff['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2).fillna(0)
-            eff['NetMargin'] = (eff['NetIncome_B'] / eff['Revenue_B'].replace(0, np.nan) * 100).round(1).fillna(0)
-            c1, c2 = st.columns(2)
-            with c1:
-                eff_s = eff.sort_values('NetMargin')
-                fig = go.Figure(go.Bar(
-                    x=eff_s['NetMargin'], y=eff_s['Company'], orientation='h',
-                    marker=dict(color=[COLORS.get(c, '#818cf8') for c in eff_s['Company']], line=dict(width=0)),
-                    text=[f"{v:.1f}%" for v in eff_s['NetMargin']], textposition='outside',
-                    hovertemplate='<b>%{y}</b><br>%{x:.1f}%<extra></extra>'))
-                sf(fig, 320, legend=False).update_layout(
-                    title=dict(text=f"Net Margin {sel_year}", font=dict(size=13, color='#94a3b8')),
-                    xaxis_title="Net Margin %")
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-            with c2:
-                if 'RevPerEmp' in eff.columns:
-                    eff_s2 = eff.sort_values('RevPerEmp')
-                    fig = go.Figure(go.Bar(
-                        x=eff_s2['RevPerEmp'], y=eff_s2['Company'], orientation='h',
-                        marker=dict(color=[COLORS.get(c, '#818cf8') for c in eff_s2['Company']], line=dict(width=0)),
-                        text=[f"${v:.2f}M" for v in eff_s2['RevPerEmp']], textposition='outside',
-                        hovertemplate='<b>%{y}</b><br>$%{x:.2f}M/emp<extra></extra>'))
-                    sf(fig, 320, legend=False).update_layout(
-                        title=dict(text=f"Revenue/Employee {sel_year}", font=dict(size=13, color='#94a3b8')),
-                        xaxis_title="$M per Employee")
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info("Employee data not available for the selected year.")
-        else:
-            st.info(f"No data for {sel_year}.")
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 5 — DEEP ANALYTICS
-# ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_DA:
+    from pages.page_deep_analytics import render_da
     year_range = page_header_range("🔬 Deep Analytics", "da")
-    ann_f   = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
-    p_f     = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
+    render_da(ann_df, price_df, sel_companies, year_range, COLORS, PL, sec, sf)
 
-    tab1, tab2, tab3 = st.tabs(["📈 Correlation", "📉 Regression", "🔍 Factor Analysis"])
-
-    with tab1:
-        sec("Price Return Correlation Matrix", f"{year_range[0]}–{year_range[1]}")
-        pivot = price_df[price_df['Company'].isin(sel_companies)].pivot_table(
-            index='Date', columns='Company', values='Price')
-        pivot = pivot.ffill().dropna()
-        if len(pivot) > 5:
-            corr = pivot.pct_change().dropna().corr()
-            fig = go.Figure(go.Heatmap(
-                z=corr.values, x=corr.columns.tolist(), y=corr.index.tolist(),
-                colorscale=[[0, '#f87171'], [0.5, '#1e293b'], [1, '#34d399']],
-                zmin=-1, zmax=1,
-                text=corr.round(2).values,
-                texttemplate='%{text}',
-                hovertemplate='%{y} × %{x}<br>r = %{z:.3f}<extra></extra>'))
-            sf(fig, 420, legend=False).update_layout(
-                title=dict(text="Daily Return Correlation", font=dict(size=13, color='#94a3b8')))
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("Not enough price data for correlation analysis.")
-
-    with tab2:
-        sec("Revenue vs Market Cap Regression", f"{year_range[0]}–{year_range[1]}")
-        if not ann_f.empty and len(ann_f) >= 3 and 'MarketCap_B' in ann_f.columns:
-            x = ann_f['Revenue_B'].values
-            y = ann_f['MarketCap_B'].values
-            if len(x) >= 3:
-                slope, intercept, r, p_val, _ = scipy_stats.linregress(x, y)
-                x_line = np.linspace(x.min(), x.max(), 100)
-                y_line = slope * x_line + intercept
-                fig = go.Figure()
-                for co in sel_companies:
-                    sub = ann_f[ann_f['Company'] == co]
-                    if sub.empty:
-                        continue
-                    fig.add_trace(go.Scatter(
-                        x=sub['Revenue_B'], y=sub['MarketCap_B'],
-                        mode='markers+text', name=co,
-                        text=sub['Year'].astype(str),
-                        textposition='top center',
-                        marker=dict(color=COLORS.get(co, '#818cf8'), size=10),
-                        hovertemplate=f'<b>{co}</b><br>Rev: $%{{x:.1f}}B<br>MCap: $%{{y:.1f}}B<extra></extra>'))
-                fig.add_trace(go.Scatter(x=x_line, y=y_line, mode='lines', name=f'Fit (R²={r**2:.2f})',
-                    line=dict(color='rgba(129,140,248,0.5)', width=2, dash='dash')))
-                sf(fig, 400).update_layout(
-                    title=dict(text=f"Revenue vs Market Cap | R²={r**2:.3f} p={p_val:.3f}", font=dict(size=13, color='#94a3b8')),
-                    xaxis_title="Revenue ($B)", yaxis_title="Market Cap ($B)")
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("Insufficient data for regression (need ≥3 data points with MarketCap).")
-
-    with tab3:
-        sec("YoY Revenue Growth Rates", f"{year_range[0]}–{year_range[1]}")
-        growth_rows = []
-        for co in sel_companies:
-            sub = ann_df[ann_df['Company'] == co].sort_values('Year')
-            if len(sub) < 2:
-                continue
-            sub = sub.copy()
-            sub['YoY_Growth'] = sub['Revenue_B'].pct_change() * 100
-            for _, row in sub.iterrows():
-                if pd.notna(row['YoY_Growth']) and year_range[0] <= row['Year'] <= year_range[1]:
-                    growth_rows.append({'Company': co, 'Year': int(row['Year']), 'YoY_Growth': round(row['YoY_Growth'], 1)})
-        if growth_rows:
-            gdf = pd.DataFrame(growth_rows)
-            fig = go.Figure()
-            for co in sel_companies:
-                sub = gdf[gdf['Company'] == co]
-                if sub.empty:
-                    continue
-                fig.add_trace(go.Bar(x=sub['Year'], y=sub['YoY_Growth'], name=co,
-                    marker_color=COLORS.get(co, '#818cf8'), opacity=0.85,
-                    hovertemplate=f'<b>{co}</b> %{{x}}<br>Growth: %{{y:.1f}}%<extra></extra>'))
-            fig.update_layout(barmode='group')
-            sf(fig, 360).update_layout(
-                title=dict(text="YoY Revenue Growth (%)", font=dict(size=13, color='#94a3b8')),
-                yaxis_title="Growth %")
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("Not enough data for YoY growth analysis.")
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 6 — AI INSIGHT ENGINE
-# ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_AI:
+    from pages.page_ai_insights import render_ai
     sel_year = page_header_single("🤖 AI Insight Engine", "ai")
-    ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'] == sel_year)]
+    render_ai(ann_df, sel_companies, sel_year, COLORS, PL, sec, sf)
 
-    sec("Auto-Generated Insights", str(sel_year))
-
-    if ann_f.empty:
-        st.info(f"No data available for {sel_year}. Try selecting a different year.")
-    else:
-        top_rev = ann_f.loc[ann_f['Revenue_B'].idxmax()]
-        st.markdown(f"""
-        <div class="insight-card">
-          <div class="insight-title">💰 Revenue Leader — {top_rev['Company']}</div>
-          <div class="insight-body">
-            {top_rev['Company']} led all tracked companies in {sel_year} with
-            <strong>${top_rev['Revenue_B']:.1f}B</strong> in annual revenue,
-            representing exceptional scale in the Big Tech landscape.
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        if 'MarketCap_B' in ann_f.columns:
-            top_mc = ann_f.loc[ann_f['MarketCap_B'].idxmax()]
-            st.markdown(f"""
-            <div class="insight-card" style="border-left-color:#22d3ee;">
-              <div class="insight-title">🏦 Market Cap Leader — {top_mc['Company']}</div>
-              <div class="insight-body">
-                {top_mc['Company']} commanded the highest market capitalisation at
-                <strong>${top_mc['MarketCap_B']:,.0f}B</strong> in {sel_year}.
-              </div>
-            </div>""", unsafe_allow_html=True)
-
-        if 'NetIncome_B' in ann_f.columns:
-            top_ni = ann_f.loc[ann_f['NetIncome_B'].idxmax()]
-            margin = top_ni['NetIncome_B'] / top_ni['Revenue_B'] * 100 if top_ni['Revenue_B'] > 0 else 0
-            st.markdown(f"""
-            <div class="insight-card" style="border-left-color:#34d399;">
-              <div class="insight-title">📈 Most Profitable — {top_ni['Company']}</div>
-              <div class="insight-body">
-                {top_ni['Company']} achieved the highest net income of
-                <strong>${top_ni['NetIncome_B']:.1f}B</strong> with a
-                <strong>{margin:.1f}%</strong> net profit margin in {sel_year}.
-              </div>
-            </div>""", unsafe_allow_html=True)
-
-        sec("Financial Snapshot", str(sel_year))
-        display_cols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B',
-                                     'Employees_K'] if c in ann_f.columns]
-        if len(display_cols) > 1:
-            st.dataframe(
-                ann_f[display_cols].set_index('Company').style.format("{:.2f}"),
-                use_container_width=True)
-
-
-# ════════════════════════════════════════════════════════════════════
-# PAGE 7 — LIVE DASHBOARD
-# ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_LD:
     from nexus_ld_page import render_ld
     render_ld(sel_companies, _live_ok, _autorefresh_ok)
