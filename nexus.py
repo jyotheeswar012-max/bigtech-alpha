@@ -9,13 +9,12 @@
 Architecture
 ────────────
 nexus.py                      ← this file: config, data loading, sidebar, router
-pages/
-  page_command_center.py      ← Page 1
-  page_stock_performance.py   ← Page 2
-  page_revenue_earnings.py    ← Page 3
-  page_competitive_analysis.py← Page 4
-  page_deep_analytics.py      ← Page 5
-  page_ai_insights.py         ← Page 6
+pg_command_center.py          ← Page 1
+pg_stock_performance.py       ← Page 2
+pg_revenue_earnings.py        ← Page 3
+pg_competitive_analysis.py   ← Page 4
+pg_deep_analytics.py          ← Page 5
+pg_ai_insights.py             ← Page 6
 nexus_ld_page.py              ← Page 7  (Live Dashboard)
 live_data.py                  ← yfinance data layer
 constants.py                  ← single source of truth: companies, colours, TTLs
@@ -28,14 +27,8 @@ import plotly.graph_objects as go
 from datetime import datetime
 from pathlib import Path
 
-# ── SINGLE SOURCE OF TRUTH: all company / colour constants ──────────────────
 from constants import (
-    COLORS,          # company-name → hex  (used by every chart)
-    ALL_COMPANIES,   # ordered list of display names
-    COMPANIES,       # ticker → name  (re-exported for page modules that need it)
-    COMPANY_COLORS,  # ticker → hex   (used by live dashboard / intraday charts)
-    NAME_TO_TICKER,  # name → ticker
-    DATA_TTL,        # cache TTL values
+    COLORS, ALL_COMPANIES, COMPANIES, COMPANY_COLORS, NAME_TO_TICKER, DATA_TTL,
 )
 
 st.set_page_config(
@@ -43,7 +36,6 @@ st.set_page_config(
     layout="wide", initial_sidebar_state="expanded"
 )
 
-# ── GLOBAL CSS (shared across all pages) ─────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
@@ -176,7 +168,6 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 </style>
 """, unsafe_allow_html=True)
 
-# ── PLOTLY DARK DEFAULTS ──────────────────────────────────────────────────────
 PL = dict(
     paper_bgcolor="#1a1d27", plot_bgcolor="#13161f",
     font=dict(family="Inter", color="#94a3b8", size=11),
@@ -187,7 +178,6 @@ PL = dict(
                 font=dict(size=10, color="#94a3b8"), orientation='h', y=1.12),
 )
 
-# ── PAGE INDEX CONSTANTS ─────────────────────────────────────────────────────────
 PAGE_NAMES = [
     "🏠  Command Center", "📈  Stock Performance", "💰  Revenue & Earnings",
     "🏆  Competitive Analysis", "🔬  Deep Analytics",
@@ -199,16 +189,13 @@ if "page_idx" not in st.session_state:
     st.session_state.page_idx = 0
 
 
-# ── SHARED HELPERS ────────────────────────────────────────────────────────────
 def hex_to_rgba(h, a=0.15):
-    """Convert a CSS hex colour to rgba() string with the given alpha."""
     h = h.lstrip('#')
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f'rgba({r},{g},{b},{a})'
 
 
 def sf(fig, h=360, legend=True):
-    """Apply the shared dark Plotly theme to a figure and set its height."""
     kw = dict(**PL, height=h)
     if not legend:
         kw['showlegend'] = False
@@ -217,7 +204,6 @@ def sf(fig, h=360, legend=True):
 
 
 def sec(title, tag="", closed=False):
-    """Render a styled horizontal section divider with an optional tag pill."""
     tag_cls = 'sec-tag closed' if closed else 'sec-tag'
     t = f'<div class="{tag_cls}">{tag}</div>' if tag else ''
     st.markdown(
@@ -227,11 +213,9 @@ def sec(title, tag="", closed=False):
 
 
 def nav_to(idx):
-    """Navigate to a page by index and trigger a Streamlit rerun."""
     st.session_state.page_idx = idx
 
 
-# ── OPTIONAL LIVE IMPORTS ─────────────────────────────────────────────────────
 try:
     from live_data import (
         get_live_price, get_intraday_data, get_multi_live_prices,
@@ -250,10 +234,8 @@ except ImportError:
     _autorefresh_ok = False
 
 
-# ── DATA LOADERS ──────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_csv():
-    """Load the three bundled CSV datasets from the repo root."""
     from constants import CSV_FILES
     base = Path(__file__).parent
     q = pd.read_csv(base / CSV_FILES["quarterly"], parse_dates=["Quarter"])
@@ -304,7 +286,6 @@ def load_live_fundamentals():
 
 @st.cache_data(ttl=DATA_TTL["merged_pipeline"], show_spinner=False)
 def build_merged_data():
-    """Merge live yfinance data with bundled CSVs; live data wins on overlap."""
     q_csv, ann_csv, price_csv = load_csv()
     live_ann = load_live_annual()
     live_q   = load_live_quarterly()
@@ -364,7 +345,6 @@ fund_df = load_live_fundamentals()
 
 
 def best_common_year(df, all_cos=None):
-    """Return the latest year for which >= 50% of the selected companies have data."""
     if all_cos is None:
         all_cos = ALL_COMPANIES
     sub = df[df['Company'].isin(all_cos)]
@@ -378,7 +358,6 @@ def best_common_year(df, all_cos=None):
 
 
 def get_latest_slice(df, companies, fallback_year=None):
-    """Return (slice_df, year) for the best common year in the given companies."""
     if df.empty:
         return pd.DataFrame(), fallback_year or 2025
     sub = df[df['Company'].isin(companies)]
@@ -395,8 +374,6 @@ if SLIDER_MIN >= SLIDER_MAX:
     SLIDER_MAX = SLIDER_MIN + 1
 ALL_YEARS = list(range(SLIDER_MIN, SLIDER_MAX + 1))
 
-
-# ── SHARED HELPER BUNDLE (passed into every page module) ─────────────────────
 _HELPERS = dict(
     sec=sec, sf=sf, hex_to_rgba=hex_to_rgba,
     get_latest_slice=get_latest_slice,
@@ -404,7 +381,6 @@ _HELPERS = dict(
 )
 
 
-# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
     <div class="logo-wrap">
@@ -445,9 +421,7 @@ with st.sidebar:
 page_idx = st.session_state.page_idx
 
 
-# ── PAGE HEADER HELPERS ───────────────────────────────────────────────────────
 def page_header_range(title_html, key_suffix):
-    """Render a page title + year-range slider; returns (start_year, end_year)."""
     title_col, _, yr_col = st.columns([5, 0.5, 2.5])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
@@ -468,7 +442,6 @@ def page_header_range(title_html, key_suffix):
 
 
 def page_header_single(title_html, key_suffix):
-    """Render a page title + single-year selector; returns the selected year."""
     title_col, _, yr_col = st.columns([5, 0.5, 2.5])
     with title_col:
         st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
@@ -488,7 +461,6 @@ def page_header_single(title_html, key_suffix):
     return yr
 
 
-# ── TICKER TAPE ───────────────────────────────────────────────────────────────
 from constants import TICKERS as _TICKERS
 ticker_html = " &nbsp;·&nbsp; ".join([f'<span class="sym">{s}</span>' for s in _TICKERS * 2])
 st.markdown(
@@ -497,11 +469,8 @@ st.markdown(
 )
 
 
-# ════════════════════════════════════════════════════════════════════
-# PAGE ROUTER — each branch is a single function call
-# ════════════════════════════════════════════════════════════════════
 if page_idx == PAGE_CC:
-    from pages.page_command_center import render_cc
+    from pg_command_center import render_cc
     year_range = page_header_range("🏠 Command Center", "cc")
     render_cc(
         ann_df, q_df, price_df, fund_df,
@@ -511,27 +480,27 @@ if page_idx == PAGE_CC:
     )
 
 elif page_idx == PAGE_SP:
-    from pages.page_stock_performance import render_sp
+    from pg_stock_performance import render_sp
     year_range = page_header_range("📈 Stock Performance", "sp")
     render_sp(price_df, ann_df, sel_companies, year_range, COLORS, PL, sec, sf)
 
 elif page_idx == PAGE_RE:
-    from pages.page_revenue_earnings import render_re
+    from pg_revenue_earnings import render_re
     year_range = page_header_range("💰 Revenue & Earnings", "re")
     render_re(ann_df, q_df, sel_companies, year_range, COLORS, PL, sec, sf, hex_to_rgba)
 
 elif page_idx == PAGE_CA:
-    from pages.page_competitive_analysis import render_ca
+    from pg_competitive_analysis import render_ca
     sel_year = page_header_single("🏆 Competitive Analysis", "ca")
     render_ca(ann_df, sel_companies, sel_year, COLORS, PL, sec, sf, hex_to_rgba)
 
 elif page_idx == PAGE_DA:
-    from pages.page_deep_analytics import render_da
+    from pg_deep_analytics import render_da
     year_range = page_header_range("🔬 Deep Analytics", "da")
     render_da(ann_df, price_df, sel_companies, year_range, COLORS, PL, sec, sf)
 
 elif page_idx == PAGE_AI:
-    from pages.page_ai_insights import render_ai
+    from pg_ai_insights import render_ai
     sel_year = page_header_single("🤖 AI Insight Engine", "ai")
     render_ai(ann_df, sel_companies, sel_year, COLORS, PL, sec, sf)
 
