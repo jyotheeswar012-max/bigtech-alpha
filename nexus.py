@@ -63,18 +63,20 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 [data-testid="stSidebar"]{background:linear-gradient(180deg,#4f46e5 0%,#6366f1 40%,#818cf8 100%)!important;border-right:none!important;box-shadow:4px 0 24px rgba(79,70,229,0.15);}
 [data-testid="stSidebar"] *{color:#fff!important;}
 [data-testid="stSidebar"] .stSelectbox>div>div,[data-testid="stSidebar"] .stMultiSelect>div>div{background:rgba(255,255,255,0.15)!important;border:1px solid rgba(255,255,255,0.25)!important;border-radius:12px!important;color:#fff!important;}
+/* ── Sidebar multiselect tags — white text & border ───────────── */
+[data-testid="stSidebar"] [data-baseweb="tag"]{background:rgba(255,255,255,0.2)!important;border:1px solid rgba(255,255,255,0.35)!important;border-radius:6px!important;}
+[data-testid="stSidebar"] [data-baseweb="tag"] span{color:#fff!important;}
+[data-testid="stSidebar"] [data-baseweb="tag"] button svg{fill:#fff!important;}
 [data-testid="stSidebar"] .stButton>button{width:100%!important;background:rgba(255,255,255,0.10)!important;border:1px solid rgba(255,255,255,0.18)!important;border-radius:12px!important;color:#fff!important;font-size:0.82rem!important;font-weight:500!important;padding:0.55rem 1rem!important;text-align:left!important;margin-bottom:0.25rem!important;transition:all 0.2s!important;}
 [data-testid="stSidebar"] .stButton>button:hover{background:rgba(255,255,255,0.22)!important;border-color:rgba(255,255,255,0.4)!important;transform:translateX(4px)!important;}
 [data-testid="stSidebar"] .stButton>button[kind="primary"]{background:rgba(255,255,255,0.30)!important;border-color:rgba(255,255,255,0.6)!important;font-weight:700!important;box-shadow:0 2px 12px rgba(0,0,0,0.15)!important;}
-/* ── SLIDER — indigo primary theme ─────────────────────────────── */
-[data-baseweb="slider"] [data-testid="stSlider"] div[role="slider"]{background:#818cf8!important;border:2px solid #a5b4fc!important;box-shadow:0 0 0 4px rgba(129,140,248,0.2)!important;}
-[data-baseweb="slider"] div[class*="Track"]>div:first-child{background:rgba(129,140,248,0.18)!important;}
-[data-baseweb="slider"] div[class*="Track"]>div:last-child{background:rgba(129,140,248,0.18)!important;}
-[data-baseweb="slider"] div[class*="Track"]>div:nth-child(2){background:linear-gradient(90deg,#818cf8,#22d3ee)!important;}
-[data-testid="stSlider"] div[role="slider"]{background:#818cf8!important;border:2px solid #a5b4fc!important;box-shadow:0 0 0 4px rgba(129,140,248,0.2)!important;width:16px!important;height:16px!important;border-radius:50%!important;}
-[data-testid="stSlider"] [class*="StyledSliderTrack"],[data-testid="stSlider"] [class*="sliderTrack"]{background:rgba(129,140,248,0.15)!important;height:4px!important;border-radius:2px!important;}
-[data-testid="stSlider"] [class*="StyledSliderTrack"] [class*="fill"],[data-testid="stSlider"] [class*="sliderFill"]{background:linear-gradient(90deg,#818cf8,#22d3ee)!important;}
-/* ── YR-CARD — tighter alignment ───────────────────────────────── */
+/* ── SLIDER — white theme ─────────────────────────────────────── */
+[data-testid="stSlider"] div[role="slider"]{background:#ffffff!important;border:2px solid rgba(255,255,255,0.8)!important;box-shadow:0 0 0 4px rgba(255,255,255,0.15)!important;width:16px!important;height:16px!important;border-radius:50%!important;}
+[data-testid="stSlider"] [class*="Track"],[data-testid="stSlider"] [class*="track"]{background:rgba(255,255,255,0.2)!important;height:4px!important;border-radius:2px!important;}
+[data-testid="stSlider"] [class*="Track"] div,[data-testid="stSlider"] [class*="track"] div{background:rgba(255,255,255,0.2)!important;}
+[data-baseweb="slider"] div[class*="Track"]>div:nth-child(2){background:#ffffff!important;}
+[data-baseweb="slider"] [data-testid="stSlider"] div[role="slider"]{background:#ffffff!important;border:2px solid rgba(255,255,255,0.9)!important;}
+/* ── YR-CARD — white label text, tight alignment ─────────────── */
 .hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#312e81 0%,#4c1d95 30%,#0e7490 70%,#065f46 100%);border-radius:var(--radius-xl);padding:3.2rem 3.8rem 3rem;margin-bottom:2rem;box-shadow:var(--shadow-xl);color:#fff;}
 .hero-title{font-family:'Outfit',sans-serif;font-size:4.5rem;font-weight:900;line-height:1.0;letter-spacing:-0.035em;margin:0 0 0.8rem 0;}
 .hero-sub{font-size:1.05rem;line-height:1.7;max-width:620px;opacity:0.9;}
@@ -108,7 +110,7 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .sec-tag{font-size:0.58rem;color:#fff!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
 .page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;}
 .yr-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:0.7rem 1rem 0.5rem;}
-.yr-card-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--txt3);font-weight:600;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.35rem;line-height:1.2;}
+.yr-card-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:#e2e8f0;font-weight:600;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.35rem;line-height:1.2;}
 .yr-card-label .yr-icon{font-size:0.7rem;}
 .yr-badge{display:inline-block;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff!important;font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:700;padding:0.2rem 0.65rem;border-radius:100px;margin-left:auto;}
 .insight-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 2rem;margin-bottom:1rem;border-left:4px solid var(--primary);box-shadow:var(--shadow);transition:all 0.25s;}
@@ -262,16 +264,6 @@ def build_merged_data():
 
     if _live_ok and not live_ann.empty:
         ann_df = merge_with_csv(live_ann, ann_csv, ['Company', 'Year'])
-
-        # ── Patch columns that are present in ann_csv but have ANY NaN rows
-        #    in ann_df after merge (e.g. RD_B for TTM or unmatched years).
-        #
-        #  Why .isna().any() and NOT .isna().all():
-        #    merge_with_csv in live_data.py fills csv-only cols via ffill/bfill
-        #    within key groups, so historical years may already be filled while
-        #    the TTM row (no CSV counterpart) stays NaN.  .isna().all() would
-        #    skip those columns entirely; .isna().any() catches the partial gaps.
-        # ────────────────────────────────────────────────────────────────────
         ann_df['Year']        = ann_df['Year'].astype(int)
         ann_csv_typed         = ann_csv.copy()
         ann_csv_typed['Year'] = ann_csv_typed['Year'].astype(int)
@@ -370,7 +362,7 @@ with st.sidebar:
     <div class="h-divider"></div>
     """, unsafe_allow_html=True)
 
-    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Navigation</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:#fff;font-weight:600;margin-bottom:0.5rem;'>Navigation</div>", unsafe_allow_html=True)
     for i, label in enumerate(PAGE_NAMES):
         is_active = (st.session_state.page_idx == i)
         if st.button(label, key=f"nav_{i}", type="primary" if is_active else "secondary"):
@@ -378,7 +370,7 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Filter Companies</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:#fff;font-weight:600;margin-bottom:0.5rem;'>Filter Companies</div>", unsafe_allow_html=True)
     sel_companies = st.multiselect("Companies", ALL_COMPANIES, default=ALL_COMPANIES, label_visibility="collapsed")
     if not sel_companies:
         sel_companies = ALL_COMPANIES
@@ -765,7 +757,6 @@ elif page_idx == PAGE_RE:
 
     tab1, tab2 = st.tabs(["📊 Revenue Trends", "💵 Earnings & Margins"])
 
-    # ── TAB 1: Revenue Trends ─────────────────────────────────────────────────
     with tab1:
         sec("Annual Revenue Growth", f"{year_range[0]}–{year_range[1]}")
         fig = go.Figure()
@@ -836,7 +827,6 @@ elif page_idx == PAGE_RE:
         else:
             st.info("No quarterly data available for the selected filters.")
 
-    # ── TAB 2: Earnings & Margins ─────────────────────────────────────────────
     with tab2:
         sec("Net Income vs Revenue", f"{year_range[0]}–{year_range[1]}")
         c1, c2 = st.columns(2)
