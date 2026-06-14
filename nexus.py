@@ -254,31 +254,30 @@ def build_merged_data():
     if _live_ok and not live_ann.empty:
         ann_df = merge_with_csv(live_ann, ann_csv, ['Company', 'Year'])
 
-        # ── FIX: patch columns that exist in ann_df but are entirely NaN
-        #         because live data never provides them (e.g. RD_B).
+        # ── Patch columns that are present in ann_csv but have ANY NaN rows
+        #    in ann_df after merge (e.g. RD_B for TTM or unmatched years).
         #
-        #  Old (broken): csv_only_cols = [c for c in ann_csv.columns
-        #                                  if c not in ann_df.columns]
-        #  → always empty; merge_with_csv already added them as NaN via reindex.
-        #
-        #  New: find columns present in ann_csv that yfinance never fills,
-        #  detected as all-NaN in ann_df after merge, then back-fill from csv.
+        #  Why .isna().any() and NOT .isna().all():
+        #    merge_with_csv in live_data.py fills csv-only cols via ffill/bfill
+        #    within key groups, so historical years may already be filled while
+        #    the TTM row (no CSV counterpart) stays NaN.  .isna().all() would
+        #    skip those columns entirely; .isna().any() catches the partial gaps.
         # ────────────────────────────────────────────────────────────────────
-        ann_df['Year'] = ann_df['Year'].astype(int)
-        ann_csv_typed  = ann_csv.copy()
+        ann_df['Year']        = ann_df['Year'].astype(int)
+        ann_csv_typed         = ann_csv.copy()
         ann_csv_typed['Year'] = ann_csv_typed['Year'].astype(int)
 
         ghost_cols = [
             c for c in ann_csv_typed.columns
             if c not in ('Company', 'Year')
             and c in ann_df.columns
-            and ann_df[c].isna().all()
+            and ann_df[c].isna().any()          # ← any NaN row, not all
             and ann_csv_typed[c].notna().any()
         ]
 
         if ghost_cols:
             csv_patch = ann_csv_typed[['Company', 'Year'] + ghost_cols].copy()
-            # Suffix merge so we never accidentally overwrite live columns
+            # Suffixed left-join so live values are never overwritten
             ann_df = ann_df.merge(
                 csv_patch,
                 on=['Company', 'Year'],
@@ -894,7 +893,6 @@ elif page_idx == PAGE_RE:
                 "Microsoft,2023,211.9,...,27.2\n```"
             )
         else:
-            # ── Build R&D dataframe ──────────────────────────────────────────
             rd_rows = []
             for co in sel_companies:
                 sub = ann_f[ann_f['Company'] == co].sort_values('Year').copy()
@@ -922,13 +920,12 @@ elif page_idx == PAGE_RE:
                     / 1e6
                 ).round(3)
 
-                # ── KPI strip ────────────────────────────────────────────────
                 latest_rd = rdf[rdf['Year'] == rdf['Year'].max()]
                 if not latest_rd.empty:
-                    top_abs   = latest_rd.loc[latest_rd['RD_B'].idxmax()]
-                    top_int   = latest_rd.loc[latest_rd['RD_Pct'].idxmax()]
-                    total_rd  = latest_rd['RD_B'].sum()
-                    avg_int   = latest_rd['RD_Pct'].mean()
+                    top_abs  = latest_rd.loc[latest_rd['RD_B'].idxmax()]
+                    top_int  = latest_rd.loc[latest_rd['RD_Pct'].idxmax()]
+                    total_rd = latest_rd['RD_B'].sum()
+                    avg_int  = latest_rd['RD_Pct'].mean()
                     st.markdown(f"""
                     <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
                       <div class="kpi"><div class="kpi-stripe purple"></div><div class="kpi-icon">🔬</div>
@@ -950,7 +947,6 @@ elif page_idx == PAGE_RE:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # ── Row 1: R&D Spend bars  |  R&D % of Revenue lines ─────────
                 sec("R&D Spend & Intensity", f"{year_range[0]}–{year_range[1]}")
                 c1, c2 = st.columns(2)
 
@@ -989,7 +985,6 @@ elif page_idx == PAGE_RE:
                         yaxis_title="R&D / Revenue %")
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-                # ── Row 2: R&D vs Net Income scatter  |  R&D per Employee ────
                 sec("R&D Efficiency & Return", f"{year_range[0]}–{year_range[1]}")
                 c3, c4 = st.columns(2)
 
@@ -1045,7 +1040,6 @@ elif page_idx == PAGE_RE:
                     )
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-                # ── Row 3: Stacked area R&D over time  |  R&D snapshot table ─
                 sec("R&D Trend & Snapshot", f"{year_range[0]}–{year_range[1]}")
                 c5, c6 = st.columns([3, 2])
 
@@ -1336,4 +1330,82 @@ elif page_idx == PAGE_AI:
         if 'RD_B' in ann_f.columns and ann_f['RD_B'].notna().any():
             rd_f = ann_f[ann_f['RD_B'].notna()]
             if not rd_f.empty:
-  
+                top_rd = rd_f.loc[rd_f['RD_B'].idxmax()]
+                rd_pct = top_rd['RD_B'] / top_rd['Revenue_B'] * 100 if top_rd['Revenue_B'] > 0 else 0
+                st.markdown(f"""
+                <div class="insight-card" style="border-left-color:#a78bfa;">
+                  <div class="insight-title">🔬 R&D Leader — {top_rd['Company']}</div>
+                  <div class="insight-body">
+                    {top_rd['Company']} invested the most in R&D at
+                    <strong>${top_rd['RD_B']:.1f}B</strong>
+                    ({rd_pct:.1f}% of revenue) in {sel_year},
+                    signalling strong commitment to future innovation.
+                  </div>
+                </div>""", unsafe_allow_html=True)
+
+        sec("Financial Snapshot", str(sel_year))
+        display_cols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B',
+                                     'Employees_K', 'RD_B'] if c in ann_f.columns]
+        if len(display_cols) > 1:
+            st.dataframe(
+                ann_f[display_cols].set_index('Company').style.format("{:.2f}"),
+                use_container_width=True)
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 7 — LIVE DASHBOARD
+# ════════════════════════════════════════════════════════════════════
+elif page_idx == PAGE_LD:
+    st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
+
+    if not _live_ok:
+        st.error("Live data module (`live_data.py`) not found. Please ensure it is present.")
+    else:
+        if _autorefresh_ok:
+            st_autorefresh(interval=30000, key="live_refresh")
+
+        sec("Live Prices", "REAL-TIME")
+        try:
+            prices = get_multi_live_prices()
+            if prices:
+                cols = st.columns(4)
+                for i, (company, data) in enumerate(prices.items()):
+                    if company not in sel_companies:
+                        continue
+                    with cols[i % 4]:
+                        price     = data.get('price', 0)
+                        change    = data.get('change_pct', 0)
+                        direction = "up" if change >= 0 else "down"
+                        arrow     = "↑" if change >= 0 else "↓"
+                        st.markdown(f"""
+                        <div class="kpi">
+                          <div class="kpi-stripe{'  ' if direction == 'up' else ' orange'}"></div>
+                          <div class="kpi-label">{company}</div>
+                          <div class="kpi-val" style="font-size:1.6rem;">${price:,.2f}</div>
+                          <div class="kpi-badge {direction}">{arrow} {abs(change):.2f}%</div>
+                        </div>""", unsafe_allow_html=True)
+        except Exception as e:
+            st.warning(f"Could not fetch live prices: {e}")
+
+        sec("Intraday Chart", "LIVE")
+        try:
+            co_live = st.selectbox("Select Company", sel_companies, key='ld_co')
+            ticker  = NAME_TO_TICKER.get(co_live, 'AAPL')
+            intra   = get_intraday_data(ticker, period="1d", interval="5m")
+            if not intra.empty:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=intra.index, y=intra['Close'], mode='lines',
+                    line=dict(color=COLORS.get(co_live, '#818cf8'), width=2),
+                    name=co_live,
+                    hovertemplate='%{x|%H:%M}<br>$%{y:.2f}<extra></extra>'
+                ))
+                sf(fig, 360, legend=False).update_layout(
+                    title=dict(text=f"{co_live} — Intraday (5-min)", font=dict(size=13, color='#94a3b8')),
+                    yaxis_title="Price (USD)"
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("No intraday data available at this time.")
+        except Exception as e:
+            st.warning(f"Could not load intraday chart: {e}")
