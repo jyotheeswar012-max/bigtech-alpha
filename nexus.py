@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  MARKET NEXUS — Big Tech Intelligence Platform  v6.2            ║
+║  BIGTECH ALPHA — Big Tech Intelligence Platform  v6.2           ║
 ║  Live data: Apple · Microsoft · Google · Amazon · Meta          ║
 ║             NVIDIA · Tesla · Netflix                             ║
 ║  Run: streamlit run nexus.py                                     ║
@@ -39,7 +39,7 @@ from constants import (
 )
 
 st.set_page_config(
-    page_title="MARKET NEXUS", page_icon="🚀",
+    page_title="BIGTECH ALPHA", page_icon="🚀",
     layout="wide", initial_sidebar_state="expanded"
 )
 
@@ -364,7 +364,7 @@ fund_df = load_live_fundamentals()
 
 
 def best_common_year(df, all_cos=None):
-    """Return the latest year for which ≥50 % of the selected companies have data."""
+    """Return the latest year for which >= 50% of the selected companies have data."""
     if all_cos is None:
         all_cos = ALL_COMPANIES
     sub = df[df['Company'].isin(all_cos)]
@@ -409,7 +409,7 @@ with st.sidebar:
     st.markdown("""
     <div class="logo-wrap">
       <div style="font-size:2rem;margin-bottom:0.35rem;">🚀</div>
-      <div class="logo-text">MARKET NEXUS</div>
+      <div class="logo-text">BIGTECH ALPHA</div>
       <div class="logo-sub">BIG TECH INTELLIGENCE · v6.2</div>
     </div>
     <div class="h-divider"></div>

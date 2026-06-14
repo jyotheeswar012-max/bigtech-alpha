@@ -1,4 +1,4 @@
-# 🚀 MARKET NEXUS — Big Tech Intelligence Platform
+# 🚀 BIGTECH ALPHA — Big Tech Intelligence Platform
 
 > **Live financial analytics across Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix**  
 > Powered by yfinance live data, real earnings & competitive benchmarks.
@@ -12,7 +12,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![yfinance](https://img.shields.io/badge/Data-yfinance-00C244?style=for-the-badge)](https://github.com/ranaroussi/yfinance)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-6.1-ff6b35?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-6.2-ff6b35?style=for-the-badge)](#)
 
 </div>
 
@@ -35,7 +35,7 @@
 ## 🗂️ Code Structure
 
 ```
-market-nexus/
+bigtech-alpha/
 ├── nexus.py               # Main Streamlit application — all 7 pages live here
 ├── live_data.py           # yfinance data fetcher — live prices, fundamentals, history
 ├── constants.py           # Shared colour palette, company list, CSS tokens
@@ -88,8 +88,8 @@ market-nexus/
 ## 📦 Installation
 
 ```bash
-git clone https://github.com/jyotheeswar012-max/market-nexus.git
-cd market-nexus
+git clone https://github.com/jyotheeswar012-max/bigtech-alpha.git
+cd bigtech-alpha
 pip install -r requirements.txt
 streamlit run nexus.py
 ```
