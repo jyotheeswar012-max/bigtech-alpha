@@ -1,8 +1,28 @@
+# ── Market Nexus — Python dependencies ───────────────────────────────────────
+# Generated from actual imports in nexus.py, live_data.py, constants.py
+# Install: pip install -r requirements.txt
+
+# Core app framework
 streamlit>=1.35.0
+
+# Data handling
 pandas>=2.2.0
 numpy>=1.26.0
+
+# Visualisation
 plotly>=5.22.0
+
+# Scientific / statistics
 scipy>=1.13.0
+
+# Live market data
 yfinance>=0.2.61
-streamlit-autorefresh>=1.0.1
+
+# Timezone handling (used in live_data.py)
+pytz>=2024.1
+
+# HTTP (used internally by yfinance & streamlit)
 requests>=2.32.0
+
+# Optional: auto-refresh in Live Dashboard page
+streamlit-autorefresh>=1.0.1
