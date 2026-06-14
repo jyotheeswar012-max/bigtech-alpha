@@ -1159,13 +1159,8 @@ elif page_idx == PAGE_AI:
 # PAGE 7 — LIVE DASHBOARD
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_LD:
-    st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
-
-    if not _live_ok:
-        st.error("Live data module (`live_data.py`) not found. Please ensure it is present.")
-    else:
-        if _autorefresh_ok:
-            st_autorefresh(interval=30000, key="live_refresh")
+    from nexus_ld_page import render_ld
+    render_ld(sel_companies, _live_ok, _autorefresh_ok)
 
         # ── Market status ──────────────────────────────────────────────────────
         try:
