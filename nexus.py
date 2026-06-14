@@ -1157,49 +1157,19 @@ elif page_idx == PAGE_LD:
         try:
             prices = get_multi_live_prices()
             if prices:
-                # ── Price KPI cards ──────────────────────────────────────────
                 filtered_prices = {co: d for co, d in prices.items() if co in sel_companies}
-                cols = st.columns(min(4, max(1, len(filtered_prices))))
-                for i, (company, data) in enumerate(filtered_prices.items()):
-                    with cols[i % len(cols)]:
-                        price     = data.get('price', 0)
-                        change    = data.get('change_pct', 0)
-                        direction = "up" if change >= 0 else "down"
-                        arrow     = "↑" if change >= 0 else "↓"
-                        st.markdown(f"""
-                        <div class="kpi">
-                          <div class="kpi-stripe{'  ' if direction == 'up' else ' orange'}"></div>
-                          <div class="kpi-label">{company}</div>
-                          <div class="kpi-val" style="font-size:1.6rem;">${price:,.2f}</div>
-                          <div class="kpi-badge {direction}">{arrow} {abs(change):.2f}%</div>
-                        </div>""", unsafe_allow_html=True)
-
-                # ── Comparison Table ─────────────────────────────────────────
-                sec("Live Price Comparison", "SNAPSHOT")
-
                 fund_live = load_live_fundamentals()
 
-                rows_html = ""
-                sorted_prices = sorted(
-                    [(co, d) for co, d in prices.items() if co in sel_companies],
+                # ── Build table rows ──────────────────────────────────────
+                table_rows = []
+                for company, data in sorted(
+                    filtered_prices.items(),
                     key=lambda x: x[1].get('price', 0), reverse=True
-                )
-
-                for company, data in sorted_prices:
-                    # Guard: NAME_TO_TICKER may not exist if live_data import partially failed
+                ):
                     ticker  = NAME_TO_TICKER.get(company, '') if isinstance(NAME_TO_TICKER, dict) else ''
                     price   = data.get('price', 0) or 0
                     change  = data.get('change_pct', 0) or 0
                     volume  = data.get('volume', 0) or 0
-                    color   = COLORS.get(company, '#818cf8')
-
-                    # Change badge
-                    if change > 0:
-                        chg_html = f'<span class="badge-up">&#9650; {change:.2f}%</span>'
-                    elif change < 0:
-                        chg_html = f'<span class="badge-dn">&#9660; {abs(change):.2f}%</span>'
-                    else:
-                        chg_html = f'<span class="badge-fl">&#8212; {change:.2f}%</span>'
 
                     # Volume formatting
                     if volume >= 1_000_000:
@@ -1209,63 +1179,83 @@ elif page_idx == PAGE_LD:
                     else:
                         vol_str = str(int(volume)) if volume else "—"
 
-                    # 52W range, market cap, P/E from fundamentals
+                    # Change arrow
+                    if change > 0:
+                        chg_str = f"▲ {change:.2f}%"
+                    elif change < 0:
+                        chg_str = f"▼ {abs(change):.2f}%"
+                    else:
+                        chg_str = f"— {change:.2f}%"
+
+                    # Fundamentals
                     w52_high = w52_low = mktcap = pe = "—"
                     if not fund_live.empty:
                         frow = fund_live[fund_live['Company'] == company]
                         if not frow.empty:
                             fr = frow.iloc[0]
-                            h   = fr.get('52w_high')   if hasattr(fr, 'get') else fr['52w_high']   if '52w_high'   in fr.index else None
-                            lo  = fr.get('52w_low')    if hasattr(fr, 'get') else fr['52w_low']    if '52w_low'    in fr.index else None
-                            m   = fr.get('marketCap_B')if hasattr(fr, 'get') else fr['marketCap_B']if 'marketCap_B'in fr.index else None
-                            p_e = fr.get('trailingPE') if hasattr(fr, 'get') else fr['trailingPE'] if 'trailingPE' in fr.index else None
 
-                            def _safe(v, fmt):
+                            def _safe(col, fmt):
                                 try:
+                                    v = fr[col] if col in fr.index else None
                                     return fmt(float(v)) if v is not None and not pd.isna(v) else "—"
                                 except (TypeError, ValueError):
                                     return "—"
 
-                            w52_high = _safe(h,   lambda v: f"${v:,.2f}")
-                            w52_low  = _safe(lo,  lambda v: f"${v:,.2f}")
-                            mktcap   = _safe(m,   lambda v: f"${v:,.0f}B")
-                            pe       = _safe(p_e, lambda v: f"{v:.1f}x")
+                            w52_high = _safe('52w_high',    lambda v: f"${v:,.2f}")
+                            w52_low  = _safe('52w_low',     lambda v: f"${v:,.2f}")
+                            mktcap   = _safe('marketCap_B', lambda v: f"${v:,.0f}B")
+                            pe       = _safe('trailingPE',  lambda v: f"{v:.1f}x")
 
-                    rows_html += f"""
-                    <tr>
-                      <td><span class="cmp-dot" style="background:{color};"></span>
-                          <strong>{company}</strong>
-                          <span style="color:#64748b;font-size:0.7rem;margin-left:6px;">{ticker}</span></td>
-                      <td style="color:#e2e8f0;font-weight:700;">${price:,.2f}</td>
-                      <td>{chg_html}</td>
-                      <td>{vol_str}</td>
-                      <td>{w52_high}</td>
-                      <td>{w52_low}</td>
-                      <td>{mktcap}</td>
-                      <td>{pe}</td>
-                    </tr>"""
+                    table_rows.append({
+                        "Company":    f"{company} ({ticker})" if ticker else company,
+                        "Price (USD)": f"${price:,.2f}",
+                        "Change %":   chg_str,
+                        "Volume":     vol_str,
+                        "52W High":   w52_high,
+                        "52W Low":    w52_low,
+                        "Mkt Cap":    mktcap,
+                        "P/E":        pe,
+                    })
 
-                st.markdown(f"""
-                <div class="cmp-wrap">
-                  <table class="cmp-table">
-                    <thead>
-                      <tr>
-                        <th>Company</th>
-                        <th>Price (USD)</th>
-                        <th>Change %</th>
-                        <th>Volume</th>
-                        <th>52W High</th>
-                        <th>52W Low</th>
-                        <th>Mkt Cap</th>
-                        <th>P/E</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows_html}
-                    </tbody>
-                  </table>
-                </div>
-                """, unsafe_allow_html=True)
+                if table_rows:
+                    live_df = pd.DataFrame(table_rows)
+
+                    # Colour-code Change % column
+                    def colour_change(val):
+                        if val.startswith("▲"):
+                            return "color: #34d399; font-weight: 700"
+                        elif val.startswith("▼"):
+                            return "color: #f87171; font-weight: 700"
+                        return "color: #fbbf24; font-weight: 700"
+
+                    styled = (
+                        live_df.style
+                        .applymap(colour_change, subset=["Change %"])
+                        .set_properties(**{
+                            "background-color": "#1a1d27",
+                            "color": "#e2e8f0",
+                            "font-family": "JetBrains Mono, monospace",
+                            "font-size": "0.82rem",
+                        })
+                        .set_table_styles([
+                            {"selector": "thead th", "props": [
+                                ("background-color", "#13161f"),
+                                ("color", "#64748b"),
+                                ("font-size", "0.65rem"),
+                                ("text-transform", "uppercase"),
+                                ("letter-spacing", "0.1em"),
+                                ("border-bottom", "1px solid rgba(129,140,248,0.28)"),
+                            ]},
+                            {"selector": "tbody tr:hover td", "props": [
+                                ("background-color", "rgba(129,140,248,0.07)"),
+                            ]},
+                            {"selector": "td", "props": [
+                                ("border-bottom", "1px solid rgba(129,140,248,0.06)"),
+                                ("padding", "0.65rem 1rem"),
+                            ]},
+                        ])
+                    )
+                    st.dataframe(styled, use_container_width=True, hide_index=True)
 
             else:
                 st.info("No live price data returned. Please check your live_data.py connection.")
