@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  MARKET NEXUS — Big Tech Intelligence Platform  v6.1            ║
+║  MARKET NEXUS — Big Tech Intelligence Platform  v6.2            ║
 ║  Live data: Apple · Microsoft · Google · Amazon · Meta          ║
 ║             NVIDIA · Tesla · Netflix                             ║
 ║  Run: streamlit run nexus.py                                     ║
@@ -63,20 +63,17 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 [data-testid="stSidebar"]{background:linear-gradient(180deg,#4f46e5 0%,#6366f1 40%,#818cf8 100%)!important;border-right:none!important;box-shadow:4px 0 24px rgba(79,70,229,0.15);}
 [data-testid="stSidebar"] *{color:#fff!important;}
 [data-testid="stSidebar"] .stSelectbox>div>div,[data-testid="stSidebar"] .stMultiSelect>div>div{background:rgba(255,255,255,0.15)!important;border:1px solid rgba(255,255,255,0.25)!important;border-radius:12px!important;color:#fff!important;}
-/* ── Sidebar multiselect tags — white text & border ───────────── */
 [data-testid="stSidebar"] [data-baseweb="tag"]{background:rgba(255,255,255,0.2)!important;border:1px solid rgba(255,255,255,0.35)!important;border-radius:6px!important;}
 [data-testid="stSidebar"] [data-baseweb="tag"] span{color:#fff!important;}
 [data-testid="stSidebar"] [data-baseweb="tag"] button svg{fill:#fff!important;}
 [data-testid="stSidebar"] .stButton>button{width:100%!important;background:rgba(255,255,255,0.10)!important;border:1px solid rgba(255,255,255,0.18)!important;border-radius:12px!important;color:#fff!important;font-size:0.82rem!important;font-weight:500!important;padding:0.55rem 1rem!important;text-align:left!important;margin-bottom:0.25rem!important;transition:all 0.2s!important;}
 [data-testid="stSidebar"] .stButton>button:hover{background:rgba(255,255,255,0.22)!important;border-color:rgba(255,255,255,0.4)!important;transform:translateX(4px)!important;}
 [data-testid="stSidebar"] .stButton>button[kind="primary"]{background:rgba(255,255,255,0.30)!important;border-color:rgba(255,255,255,0.6)!important;font-weight:700!important;box-shadow:0 2px 12px rgba(0,0,0,0.15)!important;}
-/* ── SLIDER — white theme ─────────────────────────────────────── */
 [data-testid="stSlider"] div[role="slider"]{background:#ffffff!important;border:2px solid rgba(255,255,255,0.8)!important;box-shadow:0 0 0 4px rgba(255,255,255,0.15)!important;width:16px!important;height:16px!important;border-radius:50%!important;}
 [data-testid="stSlider"] [class*="Track"],[data-testid="stSlider"] [class*="track"]{background:rgba(255,255,255,0.2)!important;height:4px!important;border-radius:2px!important;}
 [data-testid="stSlider"] [class*="Track"] div,[data-testid="stSlider"] [class*="track"] div{background:rgba(255,255,255,0.2)!important;}
 [data-baseweb="slider"] div[class*="Track"]>div:nth-child(2){background:#ffffff!important;}
 [data-baseweb="slider"] [data-testid="stSlider"] div[role="slider"]{background:#ffffff!important;border:2px solid rgba(255,255,255,0.9)!important;}
-/* ── YR-CARD — white label text, tight alignment ─────────────── */
 .hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#312e81 0%,#4c1d95 30%,#0e7490 70%,#065f46 100%);border-radius:var(--radius-xl);padding:3.2rem 3.8rem 3rem;margin-bottom:2rem;box-shadow:var(--shadow-xl);color:#fff;}
 .hero-title{font-family:'Outfit',sans-serif;font-size:4.5rem;font-weight:900;line-height:1.0;letter-spacing:-0.035em;margin:0 0 0.8rem 0;}
 .hero-sub{font-size:1.05rem;line-height:1.7;max-width:620px;opacity:0.9;}
@@ -104,10 +101,12 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .up{background:rgba(52,211,153,0.15);color:var(--green)!important;border:1px solid rgba(52,211,153,0.3);}
 .down{background:rgba(248,113,113,0.12);color:var(--red)!important;border:1px solid rgba(248,113,113,0.25);}
 .flat{background:rgba(251,191,36,0.12);color:var(--yellow)!important;border:1px solid rgba(251,191,36,0.25);}
+.closed-badge{background:rgba(100,116,139,0.18);color:#94a3b8!important;border:1px solid rgba(100,116,139,0.35);}
 .sec{display:flex;align-items:center;gap:1rem;margin:2.5rem 0 1.4rem 0;}
 .sec-title{font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt);}
 .sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
 .sec-tag{font-size:0.58rem;color:#fff!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
+.sec-tag.closed{background:linear-gradient(135deg,#475569,#64748b)!important;}
 .page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;}
 .yr-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:0.7rem 1rem 0.5rem;}
 .yr-card-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:#e2e8f0;font-weight:600;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.35rem;line-height:1.2;}
@@ -117,13 +116,22 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .insight-card:hover{transform:translateX(6px);box-shadow:var(--shadow-lg);}
 .insight-title{font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:700;color:var(--txt);margin-bottom:0.5rem;}
 .insight-body{font-size:0.88rem;color:var(--txt2);line-height:1.8;}
+/* ── LIVE PULSE DOT ──────────────────────────────────────────────── */
 .live{display:inline-block;width:8px;height:8px;background:#34d399;border-radius:50%;margin-right:6px;vertical-align:middle;animation:pulse-ring 2s ease infinite;}
+.dead{display:inline-block;width:8px;height:8px;background:#64748b;border-radius:50%;margin-right:6px;vertical-align:middle;}
 @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(52,211,153,0.5);}70%{box-shadow:0 0 0 8px rgba(52,211,153,0);}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}}
-.logo-wrap{padding:1.6rem 0 1.2rem;}
-.logo-text{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:900;color:#fff!important;}
-.logo-sub{font-size:0.55rem;color:rgba(255,255,255,0.55)!important;letter-spacing:0.16em;margin-top:0.25rem;}
-.h-divider{height:1px;background:rgba(255,255,255,0.15);margin:0.8rem 0;}
-/* ── COMPARISON TABLE ─────────────────────────────────────────── */
+/* ── PRICE CARDS ─────────────────────────────────────────────────── */
+.price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
+.price-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1.2rem 1.4rem 1rem;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:all 0.25s;}
+.price-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);}
+.price-card-bar{position:absolute;top:0;left:0;right:0;height:3px;}
+.price-card-ticker{font-family:'JetBrains Mono',monospace;font-size:0.6rem;font-weight:700;letter-spacing:0.14em;color:var(--txt3);margin-bottom:0.25rem;text-transform:uppercase;}
+.price-card-co{font-size:0.82rem;font-weight:700;color:var(--txt);margin-bottom:0.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.price-card-price{font-family:'Outfit',sans-serif;font-size:1.75rem;font-weight:800;line-height:1.0;margin-bottom:0.4rem;}
+.price-card-chg{font-family:'JetBrains Mono',monospace;font-size:0.72rem;font-weight:700;}
+.price-card-vol{font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--txt3);margin-top:0.35rem;}
+.price-card-badge{position:absolute;top:0.9rem;right:0.9rem;font-size:0.52rem;padding:0.18rem 0.6rem;border-radius:100px;font-weight:700;}
+/* ── COMPARISON TABLE ─────────────────────────────────────────────── */
 .cmp-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;box-shadow:var(--shadow);}
 .cmp-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
 .cmp-table thead tr{background:rgba(129,140,248,0.08);border-bottom:1px solid var(--border2);}
@@ -135,10 +143,14 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .cmp-table td{padding:0.72rem 1.1rem;color:var(--txt);font-family:'Inter',sans-serif;}
 .cmp-table td:not(:first-child){text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.78rem;}
 .cmp-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:middle;}
-.cmp-co{font-weight:600;color:var(--txt);display:flex;align-items:center;gap:0;}
+.cmp-co{font-weight:600;color:var(--txt);}
 .badge-up{color:#34d399;font-weight:700;}
 .badge-dn{color:#f87171;font-weight:700;}
 .badge-fl{color:#fbbf24;font-weight:700;}
+.logo-wrap{padding:1.6rem 0 1.2rem;}
+.logo-text{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:900;color:#fff!important;}
+.logo-sub{font-size:0.55rem;color:rgba(255,255,255,0.55)!important;letter-spacing:0.16em;margin-top:0.25rem;}
+.h-divider{height:1px;background:rgba(255,255,255,0.15);margin:0.8rem 0;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--txt4);border-radius:3px;}
@@ -190,8 +202,9 @@ def sf(fig, h=360, legend=True):
     return fig
 
 
-def sec(title, tag=""):
-    t = f'<div class="sec-tag">{tag}</div>' if tag else ''
+def sec(title, tag="", closed=False):
+    tag_cls = 'sec-tag closed' if closed else 'sec-tag'
+    t = f'<div class="{tag_cls}">{tag}</div>' if tag else ''
     st.markdown(
         f'<div class="sec"><div class="sec-title">{title}</div>'
         f'<div class="sec-line"></div>{t}</div>',
@@ -209,6 +222,7 @@ try:
         get_all_fundamentals, get_all_price_history,
         get_all_quarterly, get_all_annual, merge_with_csv,
         COMPANIES as LIVE_COMPANIES, COMPANY_COLORS, NAME_TO_TICKER,
+        is_market_open,
     )
     _live_ok = True
 except ImportError:
@@ -373,7 +387,7 @@ with st.sidebar:
     <div class="logo-wrap">
       <div style="font-size:2rem;margin-bottom:0.35rem;">🚀</div>
       <div class="logo-text">MARKET NEXUS</div>
-      <div class="logo-sub">BIG TECH INTELLIGENCE · v6.1</div>
+      <div class="logo-sub">BIG TECH INTELLIGENCE · v6.2</div>
     </div>
     <div class="h-divider"></div>
     """, unsafe_allow_html=True)
@@ -1153,135 +1167,74 @@ elif page_idx == PAGE_LD:
         if _autorefresh_ok:
             st_autorefresh(interval=30000, key="live_refresh")
 
-        sec("Live Prices", "REAL-TIME")
+        # ── Market status ──────────────────────────────────────────────────────
+        try:
+            market_open = is_market_open()
+        except Exception:
+            market_open = False
+
+        if market_open:
+            pulse_html  = '<span class="live"></span>'
+            status_label = "REAL-TIME"
+            status_note  = f"🟢 Market Open · auto-refresh every 30s · {datetime.now().strftime('%H:%M:%S ET')}"
+            sec_closed   = False
+        else:
+            pulse_html  = '<span class="dead"></span>'
+            status_label = "LAST CLOSE"
+            status_note  = f"⚫ Market Closed · showing last available prices · {datetime.now().strftime('%H:%M:%S')}"
+            sec_closed   = True
+
+        st.markdown(
+            f'<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.72rem;'
+            f'color:#94a3b8;margin-bottom:1.5rem;">'
+            f'{pulse_html}{status_note}</div>',
+            unsafe_allow_html=True
+        )
+
+        # ── Fetch prices ───────────────────────────────────────────────────────
         try:
             prices = get_multi_live_prices()
-            if prices:
-                filtered_prices = {co: d for co, d in prices.items() if co in sel_companies}
-                fund_live = load_live_fundamentals()
-
-                # ── Build table rows ──────────────────────────────────────
-                table_rows = []
-                for company, data in sorted(
-                    filtered_prices.items(),
-                    key=lambda x: x[1].get('price', 0), reverse=True
-                ):
-                    ticker  = NAME_TO_TICKER.get(company, '') if isinstance(NAME_TO_TICKER, dict) else ''
-                    price   = data.get('price', 0) or 0
-                    change  = data.get('change_pct', 0) or 0
-                    volume  = data.get('volume', 0) or 0
-
-                    # Volume formatting
-                    if volume >= 1_000_000:
-                        vol_str = f"{volume / 1_000_000:.1f}M"
-                    elif volume >= 1_000:
-                        vol_str = f"{volume / 1_000:.0f}K"
-                    else:
-                        vol_str = str(int(volume)) if volume else "—"
-
-                    # Change arrow
-                    if change > 0:
-                        chg_str = f"▲ {change:.2f}%"
-                    elif change < 0:
-                        chg_str = f"▼ {abs(change):.2f}%"
-                    else:
-                        chg_str = f"— {change:.2f}%"
-
-                    # Fundamentals
-                    w52_high = w52_low = mktcap = pe = "—"
-                    if not fund_live.empty:
-                        frow = fund_live[fund_live['Company'] == company]
-                        if not frow.empty:
-                            fr = frow.iloc[0]
-
-                            def _safe(col, fmt):
-                                try:
-                                    v = fr[col] if col in fr.index else None
-                                    return fmt(float(v)) if v is not None and not pd.isna(v) else "—"
-                                except (TypeError, ValueError):
-                                    return "—"
-
-                            w52_high = _safe('52w_high',    lambda v: f"${v:,.2f}")
-                            w52_low  = _safe('52w_low',     lambda v: f"${v:,.2f}")
-                            mktcap   = _safe('marketCap_B', lambda v: f"${v:,.0f}B")
-                            pe       = _safe('trailingPE',  lambda v: f"{v:.1f}x")
-
-                    table_rows.append({
-                        "Company":    f"{company} ({ticker})" if ticker else company,
-                        "Price (USD)": f"${price:,.2f}",
-                        "Change %":   chg_str,
-                        "Volume":     vol_str,
-                        "52W High":   w52_high,
-                        "52W Low":    w52_low,
-                        "Mkt Cap":    mktcap,
-                        "P/E":        pe,
-                    })
-
-                if table_rows:
-                    live_df = pd.DataFrame(table_rows)
-
-                    # Colour-code Change % column
-                    def colour_change(val):
-                        if val.startswith("▲"):
-                            return "color: #34d399; font-weight: 700"
-                        elif val.startswith("▼"):
-                            return "color: #f87171; font-weight: 700"
-                        return "color: #fbbf24; font-weight: 700"
-
-                    styled = (
-                        live_df.style
-                        .applymap(colour_change, subset=["Change %"])
-                        .set_properties(**{
-                            "background-color": "#1a1d27",
-                            "color": "#e2e8f0",
-                            "font-family": "JetBrains Mono, monospace",
-                            "font-size": "0.82rem",
-                        })
-                        .set_table_styles([
-                            {"selector": "thead th", "props": [
-                                ("background-color", "#13161f"),
-                                ("color", "#64748b"),
-                                ("font-size", "0.65rem"),
-                                ("text-transform", "uppercase"),
-                                ("letter-spacing", "0.1em"),
-                                ("border-bottom", "1px solid rgba(129,140,248,0.28)"),
-                            ]},
-                            {"selector": "tbody tr:hover td", "props": [
-                                ("background-color", "rgba(129,140,248,0.07)"),
-                            ]},
-                            {"selector": "td", "props": [
-                                ("border-bottom", "1px solid rgba(129,140,248,0.06)"),
-                                ("padding", "0.65rem 1rem"),
-                            ]},
-                        ])
-                    )
-                    st.dataframe(styled, use_container_width=True, hide_index=True)
-
-            else:
-                st.info("No live price data returned. Please check your live_data.py connection.")
-
         except Exception as e:
+            prices = {}
             st.warning(f"Could not fetch live prices: {e}")
 
-        sec("Intraday Chart", "LIVE")
-        try:
-            co_live = st.selectbox("Select Company", sel_companies, key='ld_co')
-            ticker  = NAME_TO_TICKER.get(co_live, 'AAPL') if isinstance(NAME_TO_TICKER, dict) else 'AAPL'
-            intra   = get_intraday_data(ticker, period="1d", interval="5m")
-            if not intra.empty:
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=intra.index, y=intra['Close'], mode='lines',
-                    line=dict(color=COLORS.get(co_live, '#818cf8'), width=2),
-                    name=co_live,
-                    hovertemplate='%{x|%H:%M}<br>$%{y:.2f}<extra></extra>'
-                ))
-                sf(fig, 360, legend=False).update_layout(
-                    title=dict(text=f"{co_live} — Intraday (5-min)", font=dict(size=13, color='#94a3b8')),
-                    yaxis_title="Price (USD)"
-                )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("No intraday data available at this time.")
-        except Exception as e:
-            st.warning(f"Could not load intraday chart: {e}")
+        if prices:
+            filtered_prices = {co: d for co, d in prices.items() if co in sel_companies}
+            fund_live = load_live_fundamentals()
+
+            # ── Helper: safe fundamental lookup ───────────────────────────────
+            def _safe_fund(frow, col, fmt):
+                try:
+                    v = frow[col] if col in frow.index else None
+                    return fmt(float(v)) if v is not None and not pd.isna(v) else "—"
+                except (TypeError, ValueError):
+                    return "—"
+
+            # ── Build enriched data for both cards and table ───────────────────
+            enriched = []
+            for company, data in sorted(
+                filtered_prices.items(),
+                key=lambda x: x[1].get('price', 0), reverse=True
+            ):
+                ticker = NAME_TO_TICKER.get(company, '') if isinstance(NAME_TO_TICKER, dict) else ''
+                price  = data.get('price', 0) or 0
+                change = data.get('change_pct', 0) or 0
+                volume = data.get('volume', 0) or 0
+                color  = COMPANY_COLORS.get(ticker, '#818cf8') if isinstance(COMPANY_COLORS, dict) else '#818cf8'
+
+                # Volume string
+                if volume >= 1_000_000:
+                    vol_str = f"{volume / 1_000_000:.1f}M"
+                elif volume >= 1_000:
+                    vol_str = f"{volume / 1_000:.0f}K"
+                else:
+                    vol_str = str(int(volume)) if volume else "—"
+
+                # Fundamentals
+                w52_high = w52_low = mktcap = pe = beta = eps = "—"
+                if not fund_live.empty:
+                    frow_df = fund_live[fund_live['Company'] == company]
+                    if not frow_df.empty:
+                        fr = frow_df.iloc[0]
+                        w52_high = _safe_fund(fr, '52w_high',    lambda v: f"${v:,.2f}")
+                        w52_
