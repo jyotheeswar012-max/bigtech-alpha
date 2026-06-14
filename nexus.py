@@ -66,6 +66,15 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 [data-testid="stSidebar"] .stButton>button{width:100%!important;background:rgba(255,255,255,0.10)!important;border:1px solid rgba(255,255,255,0.18)!important;border-radius:12px!important;color:#fff!important;font-size:0.82rem!important;font-weight:500!important;padding:0.55rem 1rem!important;text-align:left!important;margin-bottom:0.25rem!important;transition:all 0.2s!important;}
 [data-testid="stSidebar"] .stButton>button:hover{background:rgba(255,255,255,0.22)!important;border-color:rgba(255,255,255,0.4)!important;transform:translateX(4px)!important;}
 [data-testid="stSidebar"] .stButton>button[kind="primary"]{background:rgba(255,255,255,0.30)!important;border-color:rgba(255,255,255,0.6)!important;font-weight:700!important;box-shadow:0 2px 12px rgba(0,0,0,0.15)!important;}
+/* ── SLIDER — indigo primary theme ─────────────────────────────── */
+[data-baseweb="slider"] [data-testid="stSlider"] div[role="slider"]{background:#818cf8!important;border:2px solid #a5b4fc!important;box-shadow:0 0 0 4px rgba(129,140,248,0.2)!important;}
+[data-baseweb="slider"] div[class*="Track"]>div:first-child{background:rgba(129,140,248,0.18)!important;}
+[data-baseweb="slider"] div[class*="Track"]>div:last-child{background:rgba(129,140,248,0.18)!important;}
+[data-baseweb="slider"] div[class*="Track"]>div:nth-child(2){background:linear-gradient(90deg,#818cf8,#22d3ee)!important;}
+[data-testid="stSlider"] div[role="slider"]{background:#818cf8!important;border:2px solid #a5b4fc!important;box-shadow:0 0 0 4px rgba(129,140,248,0.2)!important;width:16px!important;height:16px!important;border-radius:50%!important;}
+[data-testid="stSlider"] [class*="StyledSliderTrack"],[data-testid="stSlider"] [class*="sliderTrack"]{background:rgba(129,140,248,0.15)!important;height:4px!important;border-radius:2px!important;}
+[data-testid="stSlider"] [class*="StyledSliderTrack"] [class*="fill"],[data-testid="stSlider"] [class*="sliderFill"]{background:linear-gradient(90deg,#818cf8,#22d3ee)!important;}
+/* ── YR-CARD — tighter alignment ───────────────────────────────── */
 .hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#312e81 0%,#4c1d95 30%,#0e7490 70%,#065f46 100%);border-radius:var(--radius-xl);padding:3.2rem 3.8rem 3rem;margin-bottom:2rem;box-shadow:var(--shadow-xl);color:#fff;}
 .hero-title{font-family:'Outfit',sans-serif;font-size:4.5rem;font-weight:900;line-height:1.0;letter-spacing:-0.035em;margin:0 0 0.8rem 0;}
 .hero-sub{font-size:1.05rem;line-height:1.7;max-width:620px;opacity:0.9;}
@@ -98,9 +107,9 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
 .sec-tag{font-size:0.58rem;color:#fff!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
 .page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;}
-.yr-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:0.85rem 1.1rem 0.6rem;}
-.yr-card-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--txt3);font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;}
-.yr-card-label .yr-icon{font-size:0.75rem;}
+.yr-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:0.7rem 1rem 0.5rem;}
+.yr-card-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--txt3);font-weight:600;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.35rem;line-height:1.2;}
+.yr-card-label .yr-icon{font-size:0.7rem;}
 .yr-badge{display:inline-block;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff!important;font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:700;padding:0.2rem 0.65rem;border-radius:100px;margin-left:auto;}
 .insight-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 2rem;margin-bottom:1rem;border-left:4px solid var(--primary);box-shadow:var(--shadow);transition:all 0.25s;}
 .insight-card:hover{transform:translateX(6px);box-shadow:var(--shadow-lg);}
@@ -411,7 +420,7 @@ def page_header_range(title_html, key_suffix):
             key=f"yr_range_{key_suffix}",
         )
         st.markdown(
-            f'<div style="text-align:right;margin-top:0.15rem;">'
+            f'<div style="display:flex;justify-content:flex-end;margin-top:0.1rem;">'
             f'<span class="yr-badge">{yr[0]} – {yr[1]}</span></div></div>',
             unsafe_allow_html=True)
     return yr
@@ -436,7 +445,7 @@ def page_header_single(title_html, key_suffix):
             key=f"yr_single_{key_suffix}",
         )
         st.markdown(
-            f'<div style="text-align:right;margin-top:0.15rem;">'
+            f'<div style="display:flex;justify-content:flex-end;margin-top:0.1rem;">'
             f'<span class="yr-badge">FY {yr}</span></div></div>',
             unsafe_allow_html=True)
     return yr
