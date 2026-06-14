@@ -131,10 +131,12 @@ PL = dict(
 )
 
 # ── CONSTANTS ─────────────────────────────────────────────────────────────────
+# FIX: Meta was '#60a5fa' (same as Microsoft) — changed to '#f97316' (orange)
+# FIX: Tesla was '#f87171' (same as Google) — changed to '#fb7185' (rose)
 COLORS = {
     'Apple': '#e2e8f0', 'Microsoft': '#60a5fa', 'Google': '#f87171',
-    'Amazon': '#fbbf24', 'Meta': '#60a5fa', 'NVIDIA': '#86efac',
-    'Tesla': '#f87171', 'Netflix': '#f472b6',
+    'Amazon': '#fbbf24', 'Meta': '#f97316', 'NVIDIA': '#86efac',
+    'Tesla': '#fb7185', 'Netflix': '#f472b6',
 }
 ALL_COMPANIES = list(COLORS.keys())
 
@@ -272,7 +274,10 @@ def build_merged_data():
         price_df = price_df.reset_index()
 
     q_df['Quarter']  = pd.to_datetime(q_df['Quarter'])
-    price_df['Date'] = pd.to_datetime(price_df['Date']).dt.tz_localize(None)
+    # FIX: tz_localize(None) crashes on tz-naive dates (CSV) and is wrong for
+    # tz-aware dates (yfinance UTC). Use tz_convert(None) when tz-aware, else no-op.
+    _dt = pd.to_datetime(price_df['Date'])
+    price_df['Date'] = _dt.dt.tz_convert(None) if _dt.dt.tz is not None else _dt
     ann_df['Year']   = ann_df['Year'].astype(int)
     return ann_df, q_df, price_df
 
@@ -664,4 +669,498 @@ elif page_idx == PAGE_SP:
                 sub = p_f[p_f['Company'] == co].sort_values('Date')
                 if len(sub) < 2:
                     continue
-                
+                ret = sub['Daily_Return'].dropna()
+                if ret.empty:
+                    continue
+                stats_rows.append({
+                    'Company': co,
+                    'Ann. Return %': round(ret.mean() * 252, 2),
+                    'Ann. Volatility %': round(ret.std() * np.sqrt(252), 2),
+                    'Sharpe (rf=0)': round(ret.mean() / ret.std() * np.sqrt(252), 2) if ret.std() > 0 else 0,
+                    'Max Drawdown %': round((sub['Price'] / sub['Price'].cummax() - 1).min() * 100, 2),
+                    'Skewness': round(float(scipy_stats.skew(ret)), 3),
+                    'Kurtosis': round(float(scipy_stats.kurtosis(ret)), 3),
+                })
+            if stats_rows:
+                st.dataframe(pd.DataFrame(stats_rows).set_index('Company'),
+                             use_container_width=True)
+        else:
+            st.info("Daily return data not available. Live data feed required.")
+
+    with tab3:
+        fig = go.Figure()
+        for co in sel_companies:
+            sub = p_f[p_f['Company'] == co].sort_values('Date')
+            if sub.empty or sub['Price'].iloc[0] == 0:
+                continue
+            total_ret = (sub['Price'].iloc[-1] / sub['Price'].iloc[0] - 1) * 100
+            fig.add_trace(go.Bar(
+                x=[co], y=[total_ret], name=co,
+                marker_color=COLORS.get(co, '#818cf8'),
+                text=[f"{total_ret:.1f}%"], textposition='outside',
+                hovertemplate=f'<b>{co}</b><br>Return: %{{y:.1f}}%<extra></extra>'))
+        sf(fig, 340, legend=False).update_layout(
+            title=dict(text=f"Total Return {year_range[0]}–{year_range[1]}", font=dict(size=13, color='#94a3b8')),
+            yaxis_title="Total Return (%)")
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 3 — REVENUE & EARNINGS  (year RANGE — shows trends)
+# ════════════════════════════════════════════════════════════════════
+elif page_idx == PAGE_RE:
+    year_range = page_header_range("💰 Revenue & Earnings", "re")
+    ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    q_f   = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
+
+    tab1, tab2, tab3 = st.tabs(["📊 Revenue Trends", "💵 Earnings & Margins", "🔍 Deep Dive"])
+
+    with tab1:
+        sec("Annual Revenue Growth", f"{year_range[0]}–{year_range[1]}")
+        fig = go.Figure()
+        for co in sel_companies:
+            sub = ann_f[ann_f['Company'] == co].sort_values('Year')
+            if sub.empty:
+                continue
+            fig.add_trace(go.Scatter(x=sub['Year'], y=sub['Revenue_B'], name=co, mode='lines+markers',
+                line=dict(color=COLORS.get(co, '#818cf8'), width=2.5),
+                marker=dict(size=7),
+                hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'))
+        sf(fig, 380).update_layout(
+            title=dict(text="Annual Revenue ($B)", font=dict(size=13, color='#94a3b8')),
+            yaxis_title="Revenue ($B)")
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+        sec("Quarterly Revenue", f"{year_range[0]}–{year_range[1]}")
+        fig2 = go.Figure()
+        for co in sel_companies:
+            sub = q_f[q_f['Company'] == co].sort_values('Quarter')
+            if sub.empty:
+                continue
+            fig2.add_trace(go.Bar(x=sub['Quarter'], y=sub['Revenue_B'], name=co,
+                marker_color=COLORS.get(co, '#818cf8'), opacity=0.85,
+                hovertemplate=f'<b>{co}</b><br>%{{x|%b %Y}}<br>${{y:.1f}}B<extra></extra>'))
+        fig2.update_layout(barmode='group')
+        sf(fig2, 340).update_layout(
+            title=dict(text="Quarterly Revenue ($B)", font=dict(size=13, color='#94a3b8')),
+            yaxis_title="Revenue ($B)")
+        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+
+    with tab2:
+        sec("Net Income vs Revenue", f"{year_range[0]}–{year_range[1]}")
+        c1, c2 = st.columns(2)
+        with c1:
+            fig = go.Figure()
+            for co in sel_companies:
+                sub = ann_f[ann_f['Company'] == co].sort_values('Year')
+                if sub.empty:
+                    continue
+                fig.add_trace(go.Scatter(x=sub['Year'], y=sub['NetIncome_B'], name=co, mode='lines+markers',
+                    line=dict(color=COLORS.get(co, '#818cf8'), width=2),
+                    marker=dict(size=6),
+                    hovertemplate=f'<b>{co}</b> %{{x}}<br>${{y:.1f}}B<extra></extra>'))
+            sf(fig, 340).update_layout(
+                title=dict(text="Net Income ($B)", font=dict(size=13, color='#94a3b8')),
+                yaxis_title="Net Income ($B)")
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        with c2:
+            margin_data = []
+            for co in sel_companies:
+                sub = ann_f[ann_f['Company'] == co].sort_values('Year')
+                if sub.empty:
+                    continue
+                sub = sub.copy()
+                sub['Margin'] = (sub['NetIncome_B'] / sub['Revenue_B'].replace(0, np.nan) * 100).round(1)
+                for _, row in sub.iterrows():
+                    margin_data.append({'Company': co, 'Year': row['Year'], 'Margin': row['Margin']})
+            if margin_data:
+                mdf = pd.DataFrame(margin_data)
+                fig = go.Figure()
+                for co in sel_companies:
+                    sub = mdf[mdf['Company'] == co]
+                    if sub.empty:
+                        continue
+                    fig.add_trace(go.Scatter(x=sub['Year'], y=sub['Margin'], name=co, mode='lines+markers',
+                        line=dict(color=COLORS.get(co, '#818cf8'), width=2),
+                        hovertemplate=f'<b>{co}</b> %{{x}}<br>Margin: %{{y:.1f}}%<extra></extra>'))
+                sf(fig, 340).update_layout(
+                    title=dict(text="Net Profit Margin (%)", font=dict(size=13, color='#94a3b8')),
+                    yaxis_title="Net Margin %")
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    with tab3:
+        sec("Revenue per Employee & R&D", f"{year_range[0]}–{year_range[1]}")
+        c1, c2 = st.columns(2)
+        with c1:
+            emp_data = []
+            for co in sel_companies:
+                sub = ann_f[ann_f['Company'] == co].sort_values('Year')
+                if sub.empty or 'Employees_K' not in sub.columns:
+                    continue
+                sub = sub.copy()
+                sub['RevPerEmp'] = (sub['Revenue_B'] * 1e9 / (sub['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2)
+                for _, row in sub.iterrows():
+                    emp_data.append({'Company': co, 'Year': row['Year'], 'RevPerEmp': row['RevPerEmp']})
+            if emp_data:
+                edf = pd.DataFrame(emp_data)
+                fig = go.Figure()
+                for co in sel_companies:
+                    sub = edf[edf['Company'] == co]
+                    if sub.empty:
+                        continue
+                    fig.add_trace(go.Scatter(x=sub['Year'], y=sub['RevPerEmp'], name=co, mode='lines+markers',
+                        line=dict(color=COLORS.get(co, '#818cf8'), width=2),
+                        hovertemplate=f'<b>{co}</b> %{{x}}<br>$%{{y:.2f}}M/emp<extra></extra>'))
+                sf(fig, 320).update_layout(
+                    title=dict(text="Revenue per Employee ($M)", font=dict(size=13, color='#94a3b8')),
+                    yaxis_title="$M per Employee")
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        with c2:
+            if 'RD_B' in ann_f.columns:
+                fig = go.Figure()
+                for co in sel_companies:
+                    sub = ann_f[ann_f['Company'] == co].sort_values('Year')
+                    if sub.empty:
+                        continue
+                    fig.add_trace(go.Bar(x=sub['Year'], y=sub['RD_B'], name=co,
+                        marker_color=COLORS.get(co, '#818cf8'), opacity=0.85,
+                        hovertemplate=f'<b>{co}</b> %{{x}}<br>R&D: $%{{y:.1f}}B<extra></extra>'))
+                fig.update_layout(barmode='group')
+                sf(fig, 320).update_layout(
+                    title=dict(text="R&D Spend ($B)", font=dict(size=13, color='#94a3b8')),
+                    yaxis_title="R&D ($B)")
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("R&D data not available in current dataset.")
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 4 — COMPETITIVE ANALYSIS  (SINGLE year snapshot)
+# ════════════════════════════════════════════════════════════════════
+elif page_idx == PAGE_CA:
+    sel_year = page_header_single("🏆 Competitive Analysis", "ca")
+    ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'] == sel_year)]
+
+    tab1, tab2, tab3 = st.tabs(["🥊 Head-to-Head", "📊 Market Share", "⚡ Efficiency"])
+
+    with tab1:
+        sec("Key Metrics Comparison", str(sel_year))
+        if not ann_f.empty:
+            display_cols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B',
+                                         'Employees_K', 'PE_Ratio', 'EPS'] if c in ann_f.columns]
+            st.dataframe(
+                ann_f[display_cols].set_index('Company').style.format("{:.2f}"),
+                use_container_width=True)
+
+        sec("Radar Chart", str(sel_year))
+        if not ann_f.empty:
+            metrics = [c for c in ['Revenue_B', 'NetIncome_B', 'MarketCap_B'] if c in ann_f.columns]
+            if metrics:
+                fig = go.Figure()
+                for _, row in ann_f.iterrows():
+                    vals = [row.get(m, 0) for m in metrics]
+                    max_vals = [ann_f[m].max() for m in metrics]
+                    norm = [v / mx * 100 if mx > 0 else 0 for v, mx in zip(vals, max_vals)]
+                    fig.add_trace(go.Scatterpolar(
+                        r=norm + [norm[0]], theta=metrics + [metrics[0]],
+                        fill='toself', name=row['Company'],
+                        line=dict(color=COLORS.get(row['Company'], '#818cf8')),
+                        fillcolor=hex_to_rgba(COLORS.get(row['Company'], '#818cf8'), 0.1)))
+                sf(fig, 420).update_layout(
+                    polar=dict(radialaxis=dict(visible=True, range=[0, 100],
+                               gridcolor='rgba(255,255,255,0.08)', color='#64748b')),
+                    title=dict(text=f"Normalised Metrics Radar {sel_year}", font=dict(size=13, color='#94a3b8')))
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info(f"No data available for {sel_year}.")
+
+    with tab2:
+        sec("Revenue & Market Cap Share", str(sel_year))
+        if not ann_f.empty:
+            c1, c2 = st.columns(2)
+            with c1:
+                fig = go.Figure(go.Pie(
+                    labels=ann_f['Company'], values=ann_f['Revenue_B'],
+                    hole=0.45, textinfo='label+percent',
+                    marker=dict(colors=[COLORS.get(c, '#818cf8') for c in ann_f['Company']],
+                                line=dict(color='#0f1117', width=2))))
+                sf(fig, 340, legend=False).update_layout(
+                    title=dict(text=f"Revenue Share {sel_year}", font=dict(size=13, color='#94a3b8')))
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with c2:
+                if 'MarketCap_B' in ann_f.columns:
+                    fig = go.Figure(go.Pie(
+                        labels=ann_f['Company'], values=ann_f['MarketCap_B'],
+                        hole=0.45, textinfo='label+percent',
+                        marker=dict(colors=[COLORS.get(c, '#818cf8') for c in ann_f['Company']],
+                                    line=dict(color='#0f1117', width=2))))
+                    sf(fig, 340, legend=False).update_layout(
+                        title=dict(text=f"Market Cap Share {sel_year}", font=dict(size=13, color='#94a3b8')))
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info(f"No data for {sel_year}.")
+
+    with tab3:
+        sec("Efficiency Metrics", str(sel_year))
+        if not ann_f.empty:
+            eff = ann_f.copy()
+            if 'Employees_K' in eff.columns:
+                eff['RevPerEmp'] = (eff['Revenue_B'] * 1e9 / (eff['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2).fillna(0)
+            eff['NetMargin'] = (eff['NetIncome_B'] / eff['Revenue_B'].replace(0, np.nan) * 100).round(1).fillna(0)
+            c1, c2 = st.columns(2)
+            with c1:
+                eff_s = eff.sort_values('NetMargin')
+                fig = go.Figure(go.Bar(
+                    x=eff_s['NetMargin'], y=eff_s['Company'], orientation='h',
+                    marker=dict(color=[COLORS.get(c, '#818cf8') for c in eff_s['Company']], line=dict(width=0)),
+                    text=[f"{v:.1f}%" for v in eff_s['NetMargin']], textposition='outside',
+                    hovertemplate='<b>%{y}</b><br>%{x:.1f}%<extra></extra>'))
+                sf(fig, 320, legend=False).update_layout(
+                    title=dict(text=f"Net Margin {sel_year}", font=dict(size=13, color='#94a3b8')),
+                    xaxis_title="Net Margin %")
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with c2:
+                if 'RevPerEmp' in eff.columns:
+                    eff_s2 = eff.sort_values('RevPerEmp')
+                    fig = go.Figure(go.Bar(
+                        x=eff_s2['RevPerEmp'], y=eff_s2['Company'], orientation='h',
+                        marker=dict(color=[COLORS.get(c, '#818cf8') for c in eff_s2['Company']], line=dict(width=0)),
+                        text=[f"${v:.2f}M" for v in eff_s2['RevPerEmp']], textposition='outside',
+                        hovertemplate='<b>%{y}</b><br>$%{x:.2f}M/emp<extra></extra>'))
+                    sf(fig, 320, legend=False).update_layout(
+                        title=dict(text=f"Revenue/Employee {sel_year}", font=dict(size=13, color='#94a3b8')),
+                        xaxis_title="$M per Employee")
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info(f"No data for {sel_year}.")
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 5 — DEEP ANALYTICS  (year RANGE)
+# ════════════════════════════════════════════════════════════════════
+elif page_idx == PAGE_DA:
+    year_range = page_header_range("🔬 Deep Analytics", "da")
+    ann_f   = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    p_f     = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
+
+    tab1, tab2, tab3 = st.tabs(["📈 Correlation", "📉 Regression", "🔭 Factor Analysis"])
+
+    with tab1:
+        sec("Price Return Correlation Matrix", f"{year_range[0]}–{year_range[1]}")
+        pivot = price_df[price_df['Company'].isin(sel_companies)].pivot_table(
+            index='Date', columns='Company', values='Price')
+        pivot = pivot.ffill().dropna()
+        if len(pivot) > 5:
+            corr = pivot.pct_change().dropna().corr()
+            fig = go.Figure(go.Heatmap(
+                z=corr.values, x=corr.columns.tolist(), y=corr.index.tolist(),
+                colorscale=[[0, '#f87171'], [0.5, '#1e293b'], [1, '#34d399']],
+                zmin=-1, zmax=1,
+                text=corr.round(2).values,
+                texttemplate='%{text}',
+                hovertemplate='%{y} × %{x}<br>r = %{z:.3f}<extra></extra>'))
+            sf(fig, 420, legend=False).update_layout(
+                title=dict(text="Daily Return Correlation", font=dict(size=13, color='#94a3b8')))
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Not enough price data for correlation analysis.")
+
+    with tab2:
+        sec("Revenue vs Market Cap Regression", f"{year_range[0]}–{year_range[1]}")
+        if not ann_f.empty and len(ann_f) >= 3:
+            x = ann_f['Revenue_B'].values
+            y = ann_f['MarketCap_B'].values if 'MarketCap_B' in ann_f.columns else None
+            if y is not None and len(x) >= 3:
+                slope, intercept, r, p_val, _ = scipy_stats.linregress(x, y)
+                x_line = np.linspace(x.min(), x.max(), 100)
+                y_line = slope * x_line + intercept
+                fig = go.Figure()
+                for co in sel_companies:
+                    sub = ann_f[ann_f['Company'] == co]
+                    if sub.empty:
+                        continue
+                    fig.add_trace(go.Scatter(
+                        x=sub['Revenue_B'], y=sub['MarketCap_B'],
+                        mode='markers+text', name=co,
+                        text=sub['Year'].astype(str),
+                        textposition='top center',
+                        marker=dict(color=COLORS.get(co, '#818cf8'), size=10),
+                        hovertemplate=f'<b>{co}</b><br>Rev: $%{{x:.1f}}B<br>MCap: $%{{y:.1f}}B<extra></extra>'))
+                fig.add_trace(go.Scatter(x=x_line, y=y_line, mode='lines', name=f'Fit (R²={r**2:.2f})',
+                    line=dict(color='rgba(129,140,248,0.5)', width=2, dash='dash')))
+                sf(fig, 400).update_layout(
+                    title=dict(text=f"Revenue vs Market Cap | R²={r**2:.3f} p={p_val:.3f}", font=dict(size=13, color='#94a3b8')),
+                    xaxis_title="Revenue ($B)", yaxis_title="Market Cap ($B)")
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Insufficient data for regression.")
+
+    with tab3:
+        sec("YoY Revenue Growth Rates", f"{year_range[0]}–{year_range[1]}")
+        growth_rows = []
+        for co in sel_companies:
+            sub = ann_df[ann_df['Company'] == co].sort_values('Year')
+            if len(sub) < 2:
+                continue
+            sub = sub.copy()
+            sub['YoY_Growth'] = sub['Revenue_B'].pct_change() * 100
+            for _, row in sub.iterrows():
+                if pd.notna(row['YoY_Growth']) and year_range[0] <= row['Year'] <= year_range[1]:
+                    growth_rows.append({'Company': co, 'Year': int(row['Year']), 'YoY_Growth': round(row['YoY_Growth'], 1)})
+        if growth_rows:
+            gdf = pd.DataFrame(growth_rows)
+            fig = go.Figure()
+            for co in sel_companies:
+                sub = gdf[gdf['Company'] == co]
+                if sub.empty:
+                    continue
+                fig.add_trace(go.Bar(x=sub['Year'], y=sub['YoY_Growth'], name=co,
+                    marker_color=COLORS.get(co, '#818cf8'), opacity=0.85,
+                    hovertemplate=f'<b>{co}</b> %{{x}}<br>Growth: %{{y:.1f}}%<extra></extra>'))
+            fig.update_layout(barmode='group')
+            sf(fig, 360).update_layout(
+                title=dict(text="YoY Revenue Growth (%)", font=dict(size=13, color='#94a3b8')),
+                yaxis_title="Growth %")
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Not enough data for YoY growth analysis.")
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 6 — AI INSIGHT ENGINE  (SINGLE year snapshot)
+# ════════════════════════════════════════════════════════════════════
+elif page_idx == PAGE_AI:
+    sel_year = page_header_single("🤖 AI Insight Engine", "ai")
+    ann_f = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'] == sel_year)]
+
+    sec("Auto-Generated Insights", str(sel_year))
+
+    if ann_f.empty:
+        st.info(f"No data available for {sel_year}. Try selecting a different year.")
+    else:
+        # Revenue leader
+        top_rev = ann_f.loc[ann_f['Revenue_B'].idxmax()]
+        st.markdown(f"""
+        <div class="insight-card">
+          <div class="insight-title">💰 Revenue Leader — {top_rev['Company']}</div>
+          <div class="insight-body">
+            {top_rev['Company']} led all tracked companies in {sel_year} with
+            <strong>${top_rev['Revenue_B']:.1f}B</strong> in annual revenue,
+            representing exceptional scale in the Big Tech landscape.
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        # Market cap leader
+        if 'MarketCap_B' in ann_f.columns:
+            top_mc = ann_f.loc[ann_f['MarketCap_B'].idxmax()]
+            st.markdown(f"""
+            <div class="insight-card" style="border-left-color:#22d3ee;">
+              <div class="insight-title">🏦 Market Cap Leader — {top_mc['Company']}</div>
+              <div class="insight-body">
+                {top_mc['Company']} commanded the highest market capitalisation at
+                <strong>${top_mc['MarketCap_B']:,.0f}B</strong> in {sel_year}.
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+        # Most profitable
+        if 'NetIncome_B' in ann_f.columns:
+            top_ni = ann_f.loc[ann_f['NetIncome_B'].idxmax()]
+            margin = top_ni['NetIncome_B'] / top_ni['Revenue_B'] * 100 if top_ni['Revenue_B'] > 0 else 0
+            st.markdown(f"""
+            <div class="insight-card" style="border-left-color:#34d399;">
+              <div class="insight-title">📈 Most Profitable — {top_ni['Company']}</div>
+              <div class="insight-body">
+                {top_ni['Company']} achieved the highest net income of
+                <strong>${top_ni['NetIncome_B']:.1f}B</strong> with a
+                <strong>{margin:.1f}%</strong> net profit margin in {sel_year}.
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+        # Margin table
+        sec("Profitability Snapshot", str(sel_year))
+        snap = ann_f.copy()
+        snap['Net Margin %'] = (snap['NetIncome_B'] / snap['Revenue_B'].replace(0, np.nan) * 100).round(1)
+        display_snap = snap[['Company', 'Revenue_B', 'NetIncome_B', 'Net Margin %']].rename(columns={
+            'Revenue_B': 'Revenue ($B)', 'NetIncome_B': 'Net Income ($B)'
+        }).set_index('Company')
+        st.dataframe(display_snap.style.format("{:.2f}"), use_container_width=True)
+
+
+# ════════════════════════════════════════════════════════════════════
+# PAGE 7 — LIVE DASHBOARD
+# ════════════════════════════════════════════════════════════════════
+elif page_idx == PAGE_LD:
+    st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
+
+    if _autorefresh_ok:
+        st_autorefresh(interval=30000, key="live_refresh")
+
+    if not _live_ok:
+        st.warning("Live data module (`live_data.py`) not found. Showing latest CSV data instead.")
+        sec("Latest Annual Snapshot")
+        latest_sl, lyr = get_latest_slice(ann_df, sel_companies)
+        if not latest_sl.empty:
+            st.dataframe(latest_sl.set_index('Company'), use_container_width=True)
+    else:
+        sec("Live Prices")
+        try:
+            live_prices = get_multi_live_prices(
+                [NAME_TO_TICKER.get(c, c) for c in sel_companies]
+            )
+            cols = st.columns(len(sel_companies))
+            for i, co in enumerate(sel_companies):
+                ticker = NAME_TO_TICKER.get(co, co)
+                price_info = live_prices.get(ticker, {})
+                price  = price_info.get('price', 0)
+                change = price_info.get('change_pct', 0)
+                with cols[i]:
+                    direction = "↑" if change >= 0 else "↓"
+                    badge_cls = "up" if change >= 0 else "down"
+                    st.markdown(f"""
+                    <div class="kpi" style="text-align:center;">
+                      <div class="kpi-stripe"></div>
+                      <div style="font-size:0.65rem;color:var(--txt3);margin-bottom:0.4rem;">{ticker}</div>
+                      <div class="kpi-val" style="font-size:1.6rem;">${price:,.2f}</div>
+                      <div class="kpi-badge {badge_cls}" style="position:relative;top:0;right:0;display:inline-block;margin-top:0.4rem;">
+                        {direction} {abs(change):.2f}%
+                      </div>
+                    </div>""", unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Could not fetch live prices: {e}")
+
+        sec("Intraday Chart")
+        if sel_companies:
+            live_co = st.selectbox("Select Company", sel_companies, key='ld_co')
+            ticker  = NAME_TO_TICKER.get(live_co, live_co)
+            try:
+                intraday_df = get_intraday_data(ticker)
+                if not intraday_df.empty:
+                    # FIX: safe column-or-index access (DataFrame.get() misuse removed)
+                    if 'Datetime' in intraday_df.columns:
+                        x_vals = intraday_df['Datetime']
+                    else:
+                        x_vals = intraday_df.index
+                    fig = go.Figure(go.Scatter(
+                        x=x_vals, y=intraday_df['Close'],
+                        mode='lines', name=live_co,
+                        line=dict(color=COLORS.get(live_co, '#818cf8'), width=2),
+                        fill='tozeroy',
+                        fillcolor=hex_to_rgba(COLORS.get(live_co, '#818cf8'), 0.07)))
+                    sf(fig, 360, legend=False).update_layout(
+                        title=dict(text=f"{live_co} ({ticker}) — Intraday", font=dict(size=13, color='#94a3b8')),
+                        yaxis_title="Price (USD)")
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("No intraday data available.")
+            except Exception as e:
+                st.error(f"Intraday data error: {e}")
+
+        sec("Fundamentals")
+        if not fund_df.empty:
+            fund_show = fund_df[fund_df['Company'].isin(sel_companies)].copy()
+            if not fund_show.empty:
+                st.dataframe(fund_show.set_index('Company'), use_container_width=True)
+            else:
+                st.info("No fundamentals data for selected companies.")
+        else:
+            st.info("Fundamentals not available (live_data.py required).")
