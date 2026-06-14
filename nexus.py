@@ -190,7 +190,7 @@ except ImportError:
 
 
 # ── DATA LOADERS ──────────────────────────────────────────────────────────────
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_csv():
     base = Path(__file__).parent
     q = pd.read_csv(base / "quarterly_revenue.csv", parse_dates=["Quarter"])
@@ -199,7 +199,7 @@ def load_csv():
     return q, a, p
 
 
-@st.cache_data(ttl=43200)
+@st.cache_data(ttl=43200, show_spinner=False)
 def load_live_annual():
     if not _live_ok:
         return pd.DataFrame()
@@ -209,7 +209,7 @@ def load_live_annual():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=43200)
+@st.cache_data(ttl=43200, show_spinner=False)
 def load_live_quarterly():
     if not _live_ok:
         return pd.DataFrame()
@@ -219,7 +219,7 @@ def load_live_quarterly():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=86400)
+@st.cache_data(ttl=86400, show_spinner=False)
 def load_live_prices():
     if not _live_ok:
         return pd.DataFrame()
@@ -229,7 +229,7 @@ def load_live_prices():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300, show_spinner=False)
 def load_live_fundamentals():
     if not _live_ok:
         return pd.DataFrame()
@@ -239,7 +239,7 @@ def load_live_fundamentals():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def build_merged_data():
     q_csv, ann_csv, price_csv = load_csv()
     live_ann = load_live_annual()
@@ -273,6 +273,19 @@ def build_merged_data():
 
 ann_df, q_df, price_df = build_merged_data()
 fund_df = load_live_fundamentals()
+
+
+@st.cache_data(show_spinner=False)
+def _best_common_year(years_tuple, companies_tuple):
+    """Cached helper — accepts hashable args."""
+    companies = list(companies_tuple)
+    years     = list(years_tuple)
+    df_sub    = ann_df[(ann_df['Company'].isin(companies)) & (ann_df['Year'].isin(years))]
+    if df_sub.empty:
+        return int(ann_df['Year'].max()) if not ann_df.empty else 2025
+    yc    = df_sub.groupby('Year')['Company'].nunique()
+    valid = yc[yc >= max(1, len(companies) // 2)]
+    return int(valid.index.max()) if not valid.empty else int(yc.index.max())
 
 
 def best_common_year(df, all_cos=None):
@@ -324,7 +337,7 @@ with st.sidebar:
     year_range = st.slider("Year Range", slider_min, slider_max, (slider_min, slider_max), label_visibility="collapsed")
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    data_src = "yfinance LIVE" if (_live_ok and not ann_df.empty) else "CSV Fallback"
+    data_src = "Live Data" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     price_latest = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
     st.markdown(
         f"<div style='font-size:0.6rem;opacity:0.5;line-height:2;'>"
@@ -371,8 +384,7 @@ if page_idx == PAGE_CC:
         <p class="hero-title">MARKET<br>NEXUS</p>
         <p class="hero-sub">
           Real-time financial intelligence across
-          <strong>Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix</strong>
-          — powered by yfinance live feeds.
+          <strong>Apple · Microsoft · Google · Amazon · Meta · NVIDIA · Tesla · Netflix</strong>.
         </p>
         <div class="hero-chips">
           <span class="chip">📊 Live Earnings</span>
@@ -394,7 +406,7 @@ if page_idx == PAGE_CC:
         top_mcap    = top_row['marketCap_B']
         nvda_row    = kpi_cos[kpi_cos['Company'] == 'NVIDIA']
         nvda_ni     = nvda_row['netIncome_B'].values[0] if not nvda_row.empty else 0
-        data_label  = "Live · yfinance"
+        data_label  = "Live Data"
     else:
         latest_sl, lyr = get_latest_slice(ann_df, sel_companies)
         if latest_sl.empty:
@@ -437,7 +449,7 @@ if page_idx == PAGE_CC:
     </div>
     """, unsafe_allow_html=True)
 
-    sec("Revenue Race & Market Cap", "LIVE yfinance DATA")
+    sec("Revenue Race & Market Cap", "FINANCIAL DATA")
     c1, c2 = st.columns(2)
     with c1:
         fig = go.Figure()
@@ -466,7 +478,7 @@ if page_idx == PAGE_CC:
                 yaxis_title="Market Cap ($B)")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-    sec("Stock Returns & Profitability", "LIVE PRICE HISTORY")
+    sec("Stock Returns & Profitability", "PRICE HISTORY")
     c1, c2 = st.columns([3, 2])
     with c1:
         fig = go.Figure()
@@ -769,7 +781,6 @@ elif page_idx == PAGE_CA:
     st.markdown('<p class="page-title">🏆 Competitive Analysis</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["📊 Benchmarks", "🕸 Radar Chart"])
 
-    # Use ann_f (sidebar-filtered) so year range is respected
     ca_years = sorted(ann_f['Year'].unique()) if not ann_f.empty else []
 
     if not ca_years:
@@ -998,7 +1009,7 @@ elif page_idx == PAGE_LD:
             st.warning(f"Could not load intraday data for {intraday_co}: {e}")
 
         if not fund_df.empty:
-            sec("Live Fundamentals", "yfinance TTM")
+            sec("Live Fundamentals", "TTM")
             disp = fund_df[fund_df['Company'].isin(sel_companies)].copy()
             dcols = [c for c in ['Company', 'marketCap_B', 'revenue_B', 'netIncome_B',
                                   'peRatio', 'eps', 'dividendYield'] if c in disp.columns]
