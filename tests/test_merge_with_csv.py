@@ -22,9 +22,9 @@ from live_data import merge_with_csv
 def csv_annual():
     """Simulated CSV annual frame — has RD_B which live data never carries."""
     return pd.DataFrame([
-        {"Company": "Apple", "Year": 2022, "Revenue_B": 390.0, "NetIncome_B": 95.0, "RD_B": 26.0},
-        {"Company": "Apple", "Year": 2023, "Revenue_B": 383.0, "NetIncome_B": 97.0, "RD_B": 29.0},
-        {"Company": "Microsoft", "Year": 2022, "Revenue_B": 198.0, "NetIncome_B": 72.0, "RD_B": 24.0},
+        {"Company": "Apple",     "Year": 2022, "Revenue_B": 390.0, "NetIncome_B":  95.0, "RD_B": 26.0},
+        {"Company": "Apple",     "Year": 2023, "Revenue_B": 383.0, "NetIncome_B":  97.0, "RD_B": 29.0},
+        {"Company": "Microsoft", "Year": 2022, "Revenue_B": 198.0, "NetIncome_B":  72.0, "RD_B": 24.0},
     ])
 
 
@@ -68,10 +68,8 @@ class TestLiveWinsOnSharedColumns:
     """
 
     def test_live_revenue_beats_csv(self, csv_annual, live_annual):
-        result = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
-        apple_2023 = result[
-            (result["Company"] == "Apple") & (result["Year"] == 2023)
-        ]
+        result     = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
+        apple_2023 = result[(result["Company"] == "Apple") & (result["Year"] == 2023)]
         assert len(apple_2023) == 1, "Duplicate row for Apple 2023 — dedup failed"
         # live frame has 385.0; csv has 383.0
         assert apple_2023["Revenue_B"].iloc[0] == 385.0, (
@@ -79,10 +77,8 @@ class TestLiveWinsOnSharedColumns:
         )
 
     def test_live_net_income_beats_csv(self, csv_annual, live_annual):
-        result = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
-        apple_2023 = result[
-            (result["Company"] == "Apple") & (result["Year"] == 2023)
-        ]
+        result     = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
+        apple_2023 = result[(result["Company"] == "Apple") & (result["Year"] == 2023)]
         # live frame has 100.0; csv has 97.0
         assert apple_2023["NetIncome_B"].iloc[0] == 100.0
 
@@ -119,10 +115,8 @@ class TestCsvOnlyColumnBackfill:
     """
 
     def test_rd_b_inherited_by_live_row(self, csv_annual, live_annual):
-        result = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
-        apple_2023 = result[
-            (result["Company"] == "Apple") & (result["Year"] == 2023)
-        ]
+        result     = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
+        apple_2023 = result[(result["Company"] == "Apple") & (result["Year"] == 2023)]
         assert "RD_B" in result.columns, "RD_B column missing from merged output"
         assert pd.notna(apple_2023["RD_B"].iloc[0]), (
             "RD_B should be back-filled into the live Apple 2023 row but is NaN"
@@ -134,10 +128,8 @@ class TestCsvOnlyColumnBackfill:
         Apple 2024 exists only in live — there is no CSV row to inherit from,
         so bfill within the Apple group should pull the nearest known RD_B.
         """
-        result = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
-        apple_2024 = result[
-            (result["Company"] == "Apple") & (result["Year"] == 2024)
-        ]
+        result     = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
+        apple_2024 = result[(result["Company"] == "Apple") & (result["Year"] == 2024)]
         assert len(apple_2024) == 1
         # bfill can't reach forward into non-existent data; value may be NaN.
         # The important thing is the column exists and no KeyError is raised.
@@ -153,11 +145,11 @@ class TestOutputShapeAndOrder:
 
     def test_no_duplicate_keys(self, csv_annual, live_annual):
         result = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
-        dupes = result.duplicated(subset=["Company", "Year"]).sum()
+        dupes  = result.duplicated(subset=["Company", "Year"]).sum()
         assert dupes == 0, f"Found {dupes} duplicate (Company, Year) rows"
 
     def test_sorted_by_key_cols(self, csv_annual, live_annual):
-        result = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
+        result         = merge_with_csv(live_annual, csv_annual, ["Company", "Year"])
         expected_order = result.sort_values(["Company", "Year"])["Year"].tolist()
         actual_order   = result["Year"].tolist()
         assert actual_order == expected_order, "Output is not sorted by (Company, Year)"
