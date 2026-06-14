@@ -158,7 +158,7 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 
 ## 👨‍💻 Author
 
-**Jyotheeswar Gudipalli**  
+**Jyotheeswar Reddy**  
 B.Tech Data Science 2027 · Manipal University Jaipur
 
 [![GitHub](https://img.shields.io/badge/GitHub-jyotheeswar012--max-181717?style=flat&logo=github)](https://github.com/jyotheeswar012-max)
