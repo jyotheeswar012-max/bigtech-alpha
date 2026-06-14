@@ -275,19 +275,6 @@ ann_df, q_df, price_df = build_merged_data()
 fund_df = load_live_fundamentals()
 
 
-@st.cache_data(show_spinner=False)
-def _best_common_year(years_tuple, companies_tuple):
-    """Cached helper — accepts hashable args."""
-    companies = list(companies_tuple)
-    years     = list(years_tuple)
-    df_sub    = ann_df[(ann_df['Company'].isin(companies)) & (ann_df['Year'].isin(years))]
-    if df_sub.empty:
-        return int(ann_df['Year'].max()) if not ann_df.empty else 2025
-    yc    = df_sub.groupby('Year')['Company'].nunique()
-    valid = yc[yc >= max(1, len(companies) // 2)]
-    return int(valid.index.max()) if not valid.empty else int(yc.index.max())
-
-
 def best_common_year(df, all_cos=None):
     if all_cos is None:
         all_cos = ALL_COMPANIES
@@ -352,13 +339,17 @@ with st.sidebar:
 
 page_idx = st.session_state.page_idx
 
-# ── FILTERED DATA ─────────────────────────────────────────────────────────────
+# ── FILTERED DATA (year_range + sel_companies applied globally) ─────────────────
 ann_f   = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
 q_f     = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
 p_f     = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
 
+# Convenience: latest year within filtered data
+FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
+
 
 def get_latest_slice(df, companies, fallback_year=None):
+    """Return rows for the most recent common year within the already-filtered df."""
     sub = df[df['Company'].isin(companies)]
     yr  = best_common_year(sub, companies) if fallback_year is None else fallback_year
     return sub[sub['Year'] == yr].copy(), yr
@@ -397,6 +388,7 @@ if page_idx == PAGE_CC:
     </div>
     """, unsafe_allow_html=True)
 
+    # KPI cards: use live fund_df filtered by sel_companies, else fall back to ann_f
     if not fund_df.empty and not fund_df[fund_df['Company'].isin(sel_companies)].empty:
         kpi_cos     = fund_df[fund_df['Company'].isin(sel_companies)]
         total_rev   = kpi_cos['revenue_B'].sum()
@@ -408,9 +400,7 @@ if page_idx == PAGE_CC:
         nvda_ni     = nvda_row['netIncome_B'].values[0] if not nvda_row.empty else 0
         data_label  = "Live Data"
     else:
-        latest_sl, lyr = get_latest_slice(ann_df, sel_companies)
-        if latest_sl.empty:
-            latest_sl, lyr = get_latest_slice(ann_df, ALL_COMPANIES)
+        latest_sl, lyr = get_latest_slice(ann_f, sel_companies)
         if latest_sl.empty:
             total_rev, total_mcap, top_mcap_co, top_mcap, nvda_ni = 0, 0, "N/A", 0, 0
             data_label = "No data"
@@ -449,7 +439,7 @@ if page_idx == PAGE_CC:
     </div>
     """, unsafe_allow_html=True)
 
-    sec("Revenue Race & Market Cap", "FINANCIAL DATA")
+    sec("Revenue Race & Market Cap", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns(2)
     with c1:
         fig = go.Figure()
@@ -478,7 +468,7 @@ if page_idx == PAGE_CC:
                 yaxis_title="Market Cap ($B)")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-    sec("Stock Returns & Profitability", "PRICE HISTORY")
+    sec("Stock Returns & Profitability", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns([3, 2])
     with c1:
         fig = go.Figure()
@@ -496,7 +486,8 @@ if page_idx == PAGE_CC:
             yaxis_title="Indexed Return")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        margin_sl, m_yr = get_latest_slice(ann_df, sel_companies)
+        # Net margin: latest year within filtered ann_f
+        margin_sl, m_yr = get_latest_slice(ann_f, sel_companies)
         if not margin_sl.empty:
             margin_sl = margin_sl.copy()
             margin_sl['Margin'] = (margin_sl['NetIncome_B'] / margin_sl['Revenue_B'].replace(0, np.nan) * 100).round(1).fillna(0)
@@ -512,10 +503,11 @@ if page_idx == PAGE_CC:
                 xaxis_title="Net Margin %")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-    sec("Revenue Distribution & Headcount", "STRUCTURAL VIEW")
+    sec("Revenue Distribution & Headcount", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns(2)
     with c1:
-        treemap_sl, t_yr = get_latest_slice(ann_df, sel_companies)
+        # Treemap: latest year within filtered ann_f
+        treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies)
         if not treemap_sl.empty and 'Sector' in treemap_sl.columns:
             fig = px.treemap(treemap_sl, path=['Sector', 'Company'], values='Revenue_B',
                 color='NetIncome_B',
@@ -528,7 +520,8 @@ if page_idx == PAGE_CC:
                 coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        emp_sl, e_yr = get_latest_slice(ann_df, sel_companies)
+        # Rev/employee: latest year within filtered ann_f
+        emp_sl, e_yr = get_latest_slice(ann_f, sel_companies)
         if not emp_sl.empty:
             emp_sl = emp_sl.copy()
             emp_sl['RevPerEmp'] = (emp_sl['Revenue_B'] * 1e9 / (emp_sl['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2).fillna(0)
@@ -706,11 +699,12 @@ elif page_idx == PAGE_RE:
             st.info("No quarterly data available.")
 
     with tab2:
-        yr_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
-        yr_max = COMMON_LATEST_YEAR
+        # CAGR uses filtered range: start = year_range[0], end = FILTERED_LATEST_YEAR
+        yr_min = year_range[0]
+        yr_max = FILTERED_LATEST_YEAR
         cagr_rows = []
         for co in sel_companies:
-            sub = ann_df[(ann_df['Company'] == co) & ann_df['Year'].isin([yr_min, yr_max])].sort_values('Year')
+            sub = ann_f[(ann_f['Company'] == co) & ann_f['Year'].isin([yr_min, yr_max])].sort_values('Year')
             if len(sub) == 2 and sub['Revenue_B'].iloc[0] > 0:
                 r0, r1 = sub['Revenue_B'].iloc[0], sub['Revenue_B'].iloc[1]
                 n = yr_max - yr_min
@@ -781,6 +775,7 @@ elif page_idx == PAGE_CA:
     st.markdown('<p class="page-title">🏆 Competitive Analysis</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["📊 Benchmarks", "🕸 Radar Chart"])
 
+    # Only years within sidebar year_range are shown
     ca_years = sorted(ann_f['Year'].unique()) if not ann_f.empty else []
 
     if not ca_years:
@@ -898,19 +893,19 @@ elif page_idx == PAGE_DA:
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_AI:
     st.markdown('<p class="page-title">🤖 AI Insight Engine</p>', unsafe_allow_html=True)
+    # All insights derive from ann_f (year-range filtered)
     latest_sl, l_yr = get_latest_slice(ann_f, sel_companies)
     if latest_sl.empty:
-        latest_sl, l_yr = get_latest_slice(ann_df, ALL_COMPANIES)
+        st.warning("No data for the selected year range. Please adjust the sidebar Year Range filter.")
+    else:
+        def make_insight(title, body, color="var(--primary)"):
+            st.markdown(
+                f'<div class="insight-card" style="border-left-color:{color};">'
+                f'<div class="insight-title">{title}</div>'
+                f'<div class="insight-body">{body}</div></div>',
+                unsafe_allow_html=True)
 
-    def make_insight(title, body, color="var(--primary)"):
-        st.markdown(
-            f'<div class="insight-card" style="border-left-color:{color};">'
-            f'<div class="insight-title">{title}</div>'
-            f'<div class="insight-body">{body}</div></div>',
-            unsafe_allow_html=True)
-
-    sec("Automated Market Intelligence", f"FY {l_yr}")
-    if not latest_sl.empty:
+        sec("Automated Market Intelligence", f"FY {l_yr}")
         if 'Revenue_B' in latest_sl.columns and not latest_sl['Revenue_B'].isna().all():
             top_rev = latest_sl.loc[latest_sl['Revenue_B'].idxmax()]
             make_insight(f"👑 Revenue Leader: {top_rev['Company']}",
@@ -931,15 +926,14 @@ elif page_idx == PAGE_AI:
             make_insight(f"⚠️ Margin Watch: {lowest_m['Company']}",
                 f"{lowest_m['Company']} carries the lowest net margin at <b>{lowest_m['Margin']:.1f}%</b>.", "#fb923c")
 
-    nvda = ann_f[ann_f['Company'] == 'NVIDIA'].sort_values('Year')
-    if len(nvda) >= 2 and nvda['Revenue_B'].iloc[-2] > 0:
-        rev_growth = (nvda['Revenue_B'].iloc[-1] / nvda['Revenue_B'].iloc[-2] - 1) * 100
-        make_insight("⚡ NVIDIA AI Boom",
-            f"NVIDIA's revenue grew <b>{rev_growth:.0f}%</b> YoY. FY{l_yr} revenue: <b>${nvda['Revenue_B'].iloc[-1]:.1f}B</b>.",
-            "#86efac")
+        nvda = ann_f[ann_f['Company'] == 'NVIDIA'].sort_values('Year')
+        if len(nvda) >= 2 and nvda['Revenue_B'].iloc[-2] > 0:
+            rev_growth = (nvda['Revenue_B'].iloc[-1] / nvda['Revenue_B'].iloc[-2] - 1) * 100
+            make_insight("⚡ NVIDIA AI Boom",
+                f"NVIDIA's revenue grew <b>{rev_growth:.0f}%</b> YoY. FY{l_yr} revenue: <b>${nvda['Revenue_B'].iloc[-1]:.1f}B</b>.",
+                "#86efac")
 
-    sec("Data Table", f"FY {l_yr}")
-    if not latest_sl.empty:
+        sec("Data Table", f"FY {l_yr}")
         dcols = [c for c in ['Company', 'Revenue_B', 'NetIncome_B', 'MarketCap_B', 'Employees_K']
                  if c in latest_sl.columns]
         st.dataframe(latest_sl[dcols].set_index('Company').style.format("{:.1f}"),
