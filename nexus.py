@@ -344,7 +344,7 @@ ann_f   = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].betwe
 q_f     = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
 p_f     = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
 
-# Convenience: latest year within filtered data
+# The latest year present in the filtered data — used automatically on every page
 FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
 
 
@@ -388,7 +388,6 @@ if page_idx == PAGE_CC:
     </div>
     """, unsafe_allow_html=True)
 
-    # KPI cards: use live fund_df filtered by sel_companies, else fall back to ann_f
     if not fund_df.empty and not fund_df[fund_df['Company'].isin(sel_companies)].empty:
         kpi_cos     = fund_df[fund_df['Company'].isin(sel_companies)]
         total_rev   = kpi_cos['revenue_B'].sum()
@@ -486,7 +485,6 @@ if page_idx == PAGE_CC:
             yaxis_title="Indexed Return")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        # Net margin: latest year within filtered ann_f
         margin_sl, m_yr = get_latest_slice(ann_f, sel_companies)
         if not margin_sl.empty:
             margin_sl = margin_sl.copy()
@@ -506,7 +504,6 @@ if page_idx == PAGE_CC:
     sec("Revenue Distribution & Headcount", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns(2)
     with c1:
-        # Treemap: latest year within filtered ann_f
         treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies)
         if not treemap_sl.empty and 'Sector' in treemap_sl.columns:
             fig = px.treemap(treemap_sl, path=['Sector', 'Company'], values='Revenue_B',
@@ -520,7 +517,6 @@ if page_idx == PAGE_CC:
                 coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        # Rev/employee: latest year within filtered ann_f
         emp_sl, e_yr = get_latest_slice(ann_f, sel_companies)
         if not emp_sl.empty:
             emp_sl = emp_sl.copy()
@@ -699,7 +695,6 @@ elif page_idx == PAGE_RE:
             st.info("No quarterly data available.")
 
     with tab2:
-        # CAGR uses filtered range: start = year_range[0], end = FILTERED_LATEST_YEAR
         yr_min = year_range[0]
         yr_max = FILTERED_LATEST_YEAR
         cagr_rows = []
@@ -775,17 +770,14 @@ elif page_idx == PAGE_CA:
     st.markdown('<p class="page-title">🏆 Competitive Analysis</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["📊 Benchmarks", "🕸 Radar Chart"])
 
-    # Only years within sidebar year_range are shown
-    ca_years = sorted(ann_f['Year'].unique()) if not ann_f.empty else []
-
-    if not ca_years:
+    if ann_f.empty:
         st.warning("No data available for selected companies/year range. Adjust the sidebar filters.")
     else:
-        with tab1:
-            sel_year = st.selectbox("Select Year", ca_years, index=len(ca_years) - 1, key='ca_year')
-            latest_sl = ann_f[ann_f['Year'] == sel_year]
-            l_yr = sel_year
+        # Use FILTERED_LATEST_YEAR automatically — no per-page selector needed
+        ca_year = FILTERED_LATEST_YEAR
+        latest_sl = ann_f[ann_f['Year'] == ca_year]
 
+        with tab1:
             metrics = ['Revenue_B', 'NetIncome_B', 'MarketCap_B', 'Employees_K']
             metric_labels = ['Revenue ($B)', 'Net Income ($B)', 'Market Cap ($B)', 'Employees (K)']
             for metric, label in zip(metrics, metric_labels):
@@ -800,14 +792,12 @@ elif page_idx == PAGE_CA:
                     text=[f"{v:.1f}" for v in srt[metric]], textposition='outside',
                     hovertemplate=f'<b>%{{x}}</b><br>{label}: %{{y:.1f}}<extra></extra>'))
                 sf(fig, 260, legend=False).update_layout(
-                    title=dict(text=f"{label} — {l_yr}", font=dict(size=13, color='#94a3b8')),
+                    title=dict(text=f"{label} — {ca_year}", font=dict(size=13, color='#94a3b8')),
                     yaxis_title=label)
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         with tab2:
-            sel_year_r = st.selectbox("Select Year", ca_years, index=len(ca_years) - 1, key='ca_year_radar')
-            radar_sl = ann_f[ann_f['Year'] == sel_year_r]
-            r_yr = sel_year_r
+            radar_sl = ann_f[ann_f['Year'] == ca_year]
             radar_metrics = ['Revenue_B', 'NetIncome_B', 'MarketCap_B']
             if all(m in radar_sl.columns for m in radar_metrics) and not radar_sl.empty:
                 norm = radar_sl.copy()
@@ -827,7 +817,7 @@ elif page_idx == PAGE_CA:
                         line=dict(color=COLORS.get(co, '#818cf8'), width=2),
                         fillcolor=hex_to_rgba(COLORS.get(co, '#818cf8'), 0.08)))
                 sf(fig, 420).update_layout(
-                    title=dict(text=f"Competitive Radar {r_yr}", font=dict(size=13, color='#94a3b8')),
+                    title=dict(text=f"Competitive Radar {ca_year}", font=dict(size=13, color='#94a3b8')),
                     polar=dict(
                         radialaxis=dict(visible=True, range=[0, 100],
                             gridcolor='rgba(255,255,255,0.08)',
@@ -893,7 +883,6 @@ elif page_idx == PAGE_DA:
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_AI:
     st.markdown('<p class="page-title">🤖 AI Insight Engine</p>', unsafe_allow_html=True)
-    # All insights derive from ann_f (year-range filtered)
     latest_sl, l_yr = get_latest_slice(ann_f, sel_companies)
     if latest_sl.empty:
         st.warning("No data for the selected year range. Please adjust the sidebar Year Range filter.")
