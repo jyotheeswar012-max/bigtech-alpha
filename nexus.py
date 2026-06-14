@@ -1158,11 +1158,10 @@ elif page_idx == PAGE_LD:
             prices = get_multi_live_prices()
             if prices:
                 # ── Price KPI cards ──────────────────────────────────────────
-                cols = st.columns(4)
-                for i, (company, data) in enumerate(prices.items()):
-                    if company not in sel_companies:
-                        continue
-                    with cols[i % 4]:
+                filtered_prices = {co: d for co, d in prices.items() if co in sel_companies}
+                cols = st.columns(min(4, max(1, len(filtered_prices))))
+                for i, (company, data) in enumerate(filtered_prices.items()):
+                    with cols[i % len(cols)]:
                         price     = data.get('price', 0)
                         change    = data.get('change_pct', 0)
                         direction = "up" if change >= 0 else "down"
@@ -1178,7 +1177,6 @@ elif page_idx == PAGE_LD:
                 # ── Comparison Table ─────────────────────────────────────────
                 sec("Live Price Comparison", "SNAPSHOT")
 
-                # Fetch fundamentals for 52W range & market cap
                 fund_live = load_live_fundamentals()
 
                 rows_html = ""
@@ -1188,46 +1186,55 @@ elif page_idx == PAGE_LD:
                 )
 
                 for company, data in sorted_prices:
-                    ticker  = NAME_TO_TICKER.get(company, '')
-                    price   = data.get('price', 0)
-                    change  = data.get('change_pct', 0)
-                    volume  = data.get('volume', 0)
+                    # Guard: NAME_TO_TICKER may not exist if live_data import partially failed
+                    ticker  = NAME_TO_TICKER.get(company, '') if isinstance(NAME_TO_TICKER, dict) else ''
+                    price   = data.get('price', 0) or 0
+                    change  = data.get('change_pct', 0) or 0
+                    volume  = data.get('volume', 0) or 0
                     color   = COLORS.get(company, '#818cf8')
 
                     # Change badge
                     if change > 0:
-                        chg_html = f'<span class="badge-up">▲ {change:.2f}%</span>'
+                        chg_html = f'<span class="badge-up">&#9650; {change:.2f}%</span>'
                     elif change < 0:
-                        chg_html = f'<span class="badge-dn">▼ {abs(change):.2f}%</span>'
+                        chg_html = f'<span class="badge-dn">&#9660; {abs(change):.2f}%</span>'
                     else:
-                        chg_html = f'<span class="badge-fl">— {change:.2f}%</span>'
+                        chg_html = f'<span class="badge-fl">&#8212; {change:.2f}%</span>'
 
                     # Volume formatting
                     if volume >= 1_000_000:
-                        vol_str = f"{volume/1_000_000:.1f}M"
+                        vol_str = f"{volume / 1_000_000:.1f}M"
                     elif volume >= 1_000:
-                        vol_str = f"{volume/1_000:.0f}K"
+                        vol_str = f"{volume / 1_000:.0f}K"
                     else:
-                        vol_str = str(volume) if volume else "—"
+                        vol_str = str(int(volume)) if volume else "—"
 
-                    # 52W range & market cap from fundamentals
+                    # 52W range, market cap, P/E from fundamentals
                     w52_high = w52_low = mktcap = pe = "—"
                     if not fund_live.empty:
                         frow = fund_live[fund_live['Company'] == company]
                         if not frow.empty:
-                            frow = frow.iloc[0]
-                            h = frow.get('52w_high')
-                            l = frow.get('52w_low')
-                            m = frow.get('marketCap_B')
-                            p_e = frow.get('trailingPE')
-                            w52_high = f"${h:,.2f}" if h and not pd.isna(h) else "—"
-                            w52_low  = f"${l:,.2f}" if l and not pd.isna(l) else "—"
-                            mktcap   = f"${m:,.0f}B"  if m and not pd.isna(m) else "—"
-                            pe       = f"{p_e:.1f}x"  if p_e and not pd.isna(p_e) else "—"
+                            fr = frow.iloc[0]
+                            h   = fr.get('52w_high')   if hasattr(fr, 'get') else fr['52w_high']   if '52w_high'   in fr.index else None
+                            lo  = fr.get('52w_low')    if hasattr(fr, 'get') else fr['52w_low']    if '52w_low'    in fr.index else None
+                            m   = fr.get('marketCap_B')if hasattr(fr, 'get') else fr['marketCap_B']if 'marketCap_B'in fr.index else None
+                            p_e = fr.get('trailingPE') if hasattr(fr, 'get') else fr['trailingPE'] if 'trailingPE' in fr.index else None
+
+                            def _safe(v, fmt):
+                                try:
+                                    return fmt(float(v)) if v is not None and not pd.isna(v) else "—"
+                                except (TypeError, ValueError):
+                                    return "—"
+
+                            w52_high = _safe(h,   lambda v: f"${v:,.2f}")
+                            w52_low  = _safe(lo,  lambda v: f"${v:,.2f}")
+                            mktcap   = _safe(m,   lambda v: f"${v:,.0f}B")
+                            pe       = _safe(p_e, lambda v: f"{v:.1f}x")
 
                     rows_html += f"""
                     <tr>
-                      <td><span class="cmp-dot" style="background:{color};"></span><strong>{company}</strong>
+                      <td><span class="cmp-dot" style="background:{color};"></span>
+                          <strong>{company}</strong>
                           <span style="color:#64748b;font-size:0.7rem;margin-left:6px;">{ticker}</span></td>
                       <td style="color:#e2e8f0;font-weight:700;">${price:,.2f}</td>
                       <td>{chg_html}</td>
@@ -1260,13 +1267,16 @@ elif page_idx == PAGE_LD:
                 </div>
                 """, unsafe_allow_html=True)
 
+            else:
+                st.info("No live price data returned. Please check your live_data.py connection.")
+
         except Exception as e:
             st.warning(f"Could not fetch live prices: {e}")
 
         sec("Intraday Chart", "LIVE")
         try:
             co_live = st.selectbox("Select Company", sel_companies, key='ld_co')
-            ticker  = NAME_TO_TICKER.get(co_live, 'AAPL')
+            ticker  = NAME_TO_TICKER.get(co_live, 'AAPL') if isinstance(NAME_TO_TICKER, dict) else 'AAPL'
             intra   = get_intraday_data(ticker, period="1d", interval="5m")
             if not intra.empty:
                 fig = go.Figure()
