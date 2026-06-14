@@ -47,7 +47,7 @@ st.markdown("""
 .stTabs [data-baseweb="tab"]:hover{color:var(--primary)!important;}
 .stTabs [aria-selected="true"]{color:var(--primary)!important;border-bottom-color:var(--primary)!important;background:transparent!important;}
 .main .stSelectbox>div>div{background:var(--white)!important;border:1px solid var(--border)!important;border-radius:12px!important;color:var(--txt)!important;}
-.main .stSelectbox label,.main .stMultiSelect label,.main .stSlider label{color:var(--txt2)!important;}
+.main .stSelectbox label,.main .stMultiSelect label,.main .stSlider label{color:var(--txt2)!important;font-size:0.75rem!important;}
 [data-testid="stMetric"]{background:var(--white)!important;border:1px solid var(--border)!important;border-radius:14px;padding:1.1rem 1.3rem;}
 [data-testid="stMetricValue"]{font-family:'Outfit',sans-serif!important;color:var(--primary)!important;font-weight:700;}
 [data-testid="stMetricLabel"]{color:var(--txt2)!important;}
@@ -97,7 +97,9 @@ section[data-testid="stSidebar"]{min-width:240px!important;max-width:280px!impor
 .sec-title{font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt);}
 .sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
 .sec-tag{font-size:0.58rem;color:#fff!important;background:linear-gradient(135deg,var(--primary),var(--accent));padding:0.28rem 0.8rem;border-radius:100px;font-weight:600;}
-.page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.6rem;}
+.page-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 60%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;}
+.yr-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:0.9rem 1.2rem 0.7rem;}
+.yr-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--txt3);font-weight:600;margin-bottom:0.4rem;}
 .insight-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 2rem;margin-bottom:1rem;border-left:4px solid var(--primary);box-shadow:var(--shadow);transition:all 0.25s;}
 .insight-card:hover{transform:translateX(6px);box-shadow:var(--shadow-lg);}
 .insight-title{font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:700;color:var(--txt);margin-bottom:0.5rem;}
@@ -289,9 +291,13 @@ def best_common_year(df, all_cos=None):
 
 
 COMMON_LATEST_YEAR = best_common_year(ann_df)
+SLIDER_MIN = int(ann_df['Year'].min()) if not ann_df.empty else 2020
+SLIDER_MAX = COMMON_LATEST_YEAR
+if SLIDER_MIN >= SLIDER_MAX:
+    SLIDER_MAX = SLIDER_MIN + 1
 
 
-# ── SIDEBAR ───────────────────────────────────────────────────────────────────
+# ── SIDEBAR (navigation + companies only) ───────────────────────────────────────
 with st.sidebar:
     st.markdown("""
     <div class="logo-wrap">
@@ -316,14 +322,6 @@ with st.sidebar:
         sel_companies = ALL_COMPANIES
 
     st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.6;margin-bottom:0.5rem;'>Year Range</div>", unsafe_allow_html=True)
-    slider_min = int(ann_df['Year'].min()) if not ann_df.empty else 2020
-    slider_max = COMMON_LATEST_YEAR
-    if slider_min >= slider_max:
-        slider_max = slider_min + 1
-    year_range = st.slider("Year Range", slider_min, slider_max, (slider_min, slider_max), label_visibility="collapsed")
-
-    st.markdown("<div class='h-divider'></div>", unsafe_allow_html=True)
     data_src = "Live Data" if (_live_ok and not ann_df.empty) else "CSV Fallback"
     price_latest = price_df['Date'].max().strftime("%Y-%m-%d") if not price_df.empty else "—"
     st.markdown(
@@ -339,20 +337,24 @@ with st.sidebar:
 
 page_idx = st.session_state.page_idx
 
-# ── FILTERED DATA (year_range + sel_companies applied globally) ─────────────────
-ann_f   = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
-q_f     = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
-p_f     = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
 
-# The latest year present in the filtered data — used automatically on every page
-FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
-
-
-def get_latest_slice(df, companies, fallback_year=None):
-    """Return rows for the most recent common year within the already-filtered df."""
-    sub = df[df['Company'].isin(companies)]
-    yr  = best_common_year(sub, companies) if fallback_year is None else fallback_year
-    return sub[sub['Year'] == yr].copy(), yr
+# ── PAGE HEADER HELPER: title (left) + year range slider (right) ─────────────────
+def page_header(title_html, key_suffix):
+    """Renders page title on the left and year-range slider on the right.
+    Returns (year_range_tuple) that the page should use for all filtering."""
+    title_col, spacer, yr_col = st.columns([5, 1, 2])
+    with title_col:
+        st.markdown(f'<p class="page-title">{title_html}</p>', unsafe_allow_html=True)
+    with yr_col:
+        st.markdown("<div class='yr-label'>📅 Year Range</div>", unsafe_allow_html=True)
+        yr = st.slider(
+            "Year Range",
+            SLIDER_MIN, SLIDER_MAX,
+            (SLIDER_MIN, SLIDER_MAX),
+            label_visibility="collapsed",
+            key=f"yr_range_{key_suffix}",
+        )
+    return yr
 
 
 # ── TICKER TAPE ───────────────────────────────────────────────────────────────
@@ -368,6 +370,13 @@ st.markdown(
 # PAGE 1 — COMMAND CENTER
 # ════════════════════════════════════════════════════════════════════
 if page_idx == PAGE_CC:
+    year_range = page_header("🏠 Command Center", "cc")
+
+    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
+    p_f    = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
+    FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
+
     st.markdown("""
     <div class="hero">
       <div style="position:relative;z-index:1;">
@@ -399,7 +408,7 @@ if page_idx == PAGE_CC:
         nvda_ni     = nvda_row['netIncome_B'].values[0] if not nvda_row.empty else 0
         data_label  = "Live Data"
     else:
-        latest_sl, lyr = get_latest_slice(ann_f, sel_companies)
+        latest_sl, lyr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
         if latest_sl.empty:
             total_rev, total_mcap, top_mcap_co, top_mcap, nvda_ni = 0, 0, "N/A", 0, 0
             data_label = "No data"
@@ -485,7 +494,7 @@ if page_idx == PAGE_CC:
             yaxis_title="Indexed Return")
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        margin_sl, m_yr = get_latest_slice(ann_f, sel_companies)
+        margin_sl, m_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
         if not margin_sl.empty:
             margin_sl = margin_sl.copy()
             margin_sl['Margin'] = (margin_sl['NetIncome_B'] / margin_sl['Revenue_B'].replace(0, np.nan) * 100).round(1).fillna(0)
@@ -504,7 +513,7 @@ if page_idx == PAGE_CC:
     sec("Revenue Distribution & Headcount", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns(2)
     with c1:
-        treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies)
+        treemap_sl, t_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
         if not treemap_sl.empty and 'Sector' in treemap_sl.columns:
             fig = px.treemap(treemap_sl, path=['Sector', 'Company'], values='Revenue_B',
                 color='NetIncome_B',
@@ -517,7 +526,7 @@ if page_idx == PAGE_CC:
                 coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        emp_sl, e_yr = get_latest_slice(ann_f, sel_companies)
+        emp_sl, e_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
         if not emp_sl.empty:
             emp_sl = emp_sl.copy()
             emp_sl['RevPerEmp'] = (emp_sl['Revenue_B'] * 1e9 / (emp_sl['Employees_K'].replace(0, np.nan) * 1e3) / 1e6).round(2).fillna(0)
@@ -533,11 +542,27 @@ if page_idx == PAGE_CC:
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 
+# helper used by all pages after CC
+def _get_latest_slice(df, companies):
+    sub = df[df['Company'].isin(companies)]
+    yr  = best_common_year(sub, companies)
+    return sub[sub['Year'] == yr].copy(), yr
+
+def get_latest_slice(df, companies, fallback_year=None):
+    sub = df[df['Company'].isin(companies)]
+    yr  = best_common_year(sub, companies) if fallback_year is None else fallback_year
+    return sub[sub['Year'] == yr].copy(), yr
+
+
 # ════════════════════════════════════════════════════════════════════
 # PAGE 2 — STOCK PERFORMANCE
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_SP:
-    st.markdown('<p class="page-title">📈 Stock Performance</p>', unsafe_allow_html=True)
+    year_range = page_header("📈 Stock Performance", "sp")
+    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
+    p_f    = price_df[(price_df['Company'].isin(sel_companies)) & (price_df['Date'].dt.year.between(*year_range))]
+
     tab1, tab2, tab3 = st.tabs(["📊 Price History", "📉 Volatility & Risk", "🎯 Return Analysis"])
 
     with tab1:
@@ -664,7 +689,11 @@ elif page_idx == PAGE_SP:
 # PAGE 3 — REVENUE & EARNINGS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_RE:
-    st.markdown('<p class="page-title">💰 Revenue &amp; Earnings</p>', unsafe_allow_html=True)
+    year_range = page_header("💰 Revenue &amp; Earnings", "re")
+    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    q_f    = q_df[(q_df['Company'].isin(sel_companies)) & (q_df['Quarter'].dt.year.between(*year_range))]
+    FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
+
     tab1, tab2, tab3 = st.tabs(["📊 Quarterly Deep-Dive", "📈 Growth Trends", "💎 Profitability"])
 
     with tab1:
@@ -732,7 +761,7 @@ elif page_idx == PAGE_RE:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     with tab3:
-        prof_sl, p_yr = get_latest_slice(ann_f, sel_companies)
+        prof_sl, p_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
         c1, c2 = st.columns(2)
         with c1:
             fig = go.Figure()
@@ -767,14 +796,16 @@ elif page_idx == PAGE_RE:
 # PAGE 4 — COMPETITIVE ANALYSIS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_CA:
-    st.markdown('<p class="page-title">🏆 Competitive Analysis</p>', unsafe_allow_html=True)
+    year_range = page_header("🏆 Competitive Analysis", "ca")
+    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    FILTERED_LATEST_YEAR = best_common_year(ann_f, sel_companies) if not ann_f.empty else year_range[1]
+
     tab1, tab2 = st.tabs(["📊 Benchmarks", "🕸 Radar Chart"])
 
     if ann_f.empty:
-        st.warning("No data available for selected companies/year range. Adjust the sidebar filters.")
+        st.warning("No data available for selected companies/year range. Adjust the filters.")
     else:
-        # Use FILTERED_LATEST_YEAR automatically — no per-page selector needed
-        ca_year = FILTERED_LATEST_YEAR
+        ca_year   = FILTERED_LATEST_YEAR
         latest_sl = ann_f[ann_f['Year'] == ca_year]
 
         with tab1:
@@ -834,7 +865,9 @@ elif page_idx == PAGE_CA:
 # PAGE 5 — DEEP ANALYTICS
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_DA:
-    st.markdown('<p class="page-title">🔬 Deep Analytics</p>', unsafe_allow_html=True)
+    year_range = page_header("🔬 Deep Analytics", "da")
+    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+
     tab1, tab2 = st.tabs(["📈 Correlation Matrix", "📊 Regression"])
 
     with tab1:
@@ -882,10 +915,12 @@ elif page_idx == PAGE_DA:
 # PAGE 6 — AI INSIGHT ENGINE
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_AI:
-    st.markdown('<p class="page-title">🤖 AI Insight Engine</p>', unsafe_allow_html=True)
-    latest_sl, l_yr = get_latest_slice(ann_f, sel_companies)
+    year_range = page_header("🤖 AI Insight Engine", "ai")
+    ann_f  = ann_df[(ann_df['Company'].isin(sel_companies)) & (ann_df['Year'].between(*year_range))]
+    latest_sl, l_yr = get_latest_slice(ann_f, sel_companies) if not ann_f.empty else (pd.DataFrame(), year_range[1])
+
     if latest_sl.empty:
-        st.warning("No data for the selected year range. Please adjust the sidebar Year Range filter.")
+        st.warning("No data for the selected year range. Please adjust the Year Range filter.")
     else:
         def make_insight(title, body, color="var(--primary)"):
             st.markdown(
@@ -933,7 +968,10 @@ elif page_idx == PAGE_AI:
 # PAGE 7 — LIVE DASHBOARD
 # ════════════════════════════════════════════════════════════════════
 elif page_idx == PAGE_LD:
-    st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
+    # Live Dashboard doesn't use year range for live prices; show header only
+    title_col, _ = st.columns([5, 3])
+    with title_col:
+        st.markdown('<p class="page-title">📡 Live Dashboard</p>', unsafe_allow_html=True)
 
     if _autorefresh_ok:
         st_autorefresh(interval=60000, key="live_refresh")
