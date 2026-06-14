@@ -523,6 +523,8 @@ if page_idx == PAGE_CC:
                 title=dict(text="Market Cap by Year ($B)", font=dict(size=13, color='#94a3b8')),
                 yaxis_title="Market Cap ($B)")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("No annual data available for the selected filters.")
 
     sec("Stock Returns & Profitability", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns([3, 2])
@@ -557,6 +559,8 @@ if page_idx == PAGE_CC:
                 title=dict(text=f"Net Profit Margin {m_yr}", font=dict(size=13, color='#94a3b8')),
                 xaxis_title="Net Margin %")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("No margin data available for the selected filters.")
 
     sec("Revenue Distribution & Headcount", f"{year_range[0]}–{year_range[1]}")
     c1, c2 = st.columns(2)
@@ -590,6 +594,8 @@ if page_idx == PAGE_CC:
                 title=dict(text=f"Revenue per Employee {e_yr} ($M)", font=dict(size=13, color='#94a3b8')),
                 xaxis_title="$M per Employee")
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("No employee data available for the selected filters.")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -647,7 +653,7 @@ elif page_idx == PAGE_SP:
                 st.info("No price data available for the selected filters.")
 
     with tab2:
-        if 'Daily_Return' in p_f.columns:
+        if 'Daily_Return' in p_f.columns and not p_f.empty:
             fig = go.Figure()
             for co in sel_companies:
                 sub = p_f[p_f['Company'] == co].sort_values('Date')
@@ -682,6 +688,8 @@ elif page_idx == PAGE_SP:
             if stats_rows:
                 st.dataframe(pd.DataFrame(stats_rows).set_index('Company'),
                              use_container_width=True)
+            else:
+                st.info("Not enough price data to compute risk statistics.")
         else:
             st.info("No price data available for the selected filters.")
 
@@ -785,6 +793,8 @@ elif page_idx == PAGE_RE:
                     title=dict(text="Net Profit Margin (%)", font=dict(size=13, color='#94a3b8')),
                     yaxis_title="Net Margin %")
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("No margin data available for the selected filters.")
 
     with tab3:
         sec("Revenue per Employee & R&D", f"{year_range[0]}–{year_range[1]}")
@@ -813,6 +823,8 @@ elif page_idx == PAGE_RE:
                     title=dict(text="Revenue per Employee ($M)", font=dict(size=13, color='#94a3b8')),
                     yaxis_title="$M per Employee")
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("No employee data available for the selected filters.")
         with c2:
             if 'RD_B' in ann_f.columns:
                 fig = go.Figure()
@@ -850,8 +862,7 @@ elif page_idx == PAGE_CA:
                 ann_f[display_cols].set_index('Company').style.format("{:.2f}"),
                 use_container_width=True)
 
-        sec("Radar Chart", str(sel_year))
-        if not ann_f.empty:
+            sec("Radar Chart", str(sel_year))
             metrics = [c for c in ['Revenue_B', 'NetIncome_B', 'MarketCap_B'] if c in ann_f.columns]
             if metrics:
                 fig = go.Figure()
@@ -895,6 +906,8 @@ elif page_idx == PAGE_CA:
                     sf(fig, 340, legend=False).update_layout(
                         title=dict(text=f"Market Cap Share {sel_year}", font=dict(size=13, color='#94a3b8')))
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("Market cap data not available for the selected year.")
         else:
             st.info(f"No data for {sel_year}.")
 
@@ -929,6 +942,8 @@ elif page_idx == PAGE_CA:
                         title=dict(text=f"Revenue/Employee {sel_year}", font=dict(size=13, color='#94a3b8')),
                         xaxis_title="$M per Employee")
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("Employee data not available for the selected year.")
         else:
             st.info(f"No data for {sel_year}.")
 
@@ -965,10 +980,10 @@ elif page_idx == PAGE_DA:
 
     with tab2:
         sec("Revenue vs Market Cap Regression", f"{year_range[0]}–{year_range[1]}")
-        if not ann_f.empty and len(ann_f) >= 3:
+        if not ann_f.empty and len(ann_f) >= 3 and 'MarketCap_B' in ann_f.columns:
             x = ann_f['Revenue_B'].values
-            y = ann_f['MarketCap_B'].values if 'MarketCap_B' in ann_f.columns else None
-            if y is not None and len(x) >= 3:
+            y = ann_f['MarketCap_B'].values
+            if len(x) >= 3:
                 slope, intercept, r, p_val, _ = scipy_stats.linregress(x, y)
                 x_line = np.linspace(x.min(), x.max(), 100)
                 y_line = slope * x_line + intercept
@@ -991,7 +1006,7 @@ elif page_idx == PAGE_DA:
                     xaxis_title="Revenue ($B)", yaxis_title="Market Cap ($B)")
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         else:
-            st.info("Insufficient data for regression.")
+            st.info("Insufficient data for regression (need ≥3 data points with MarketCap).")
 
     with tab3:
         sec("YoY Revenue Growth Rates", f"{year_range[0]}–{year_range[1]}")
@@ -1095,6 +1110,8 @@ elif page_idx == PAGE_LD:
         latest_sl, lyr = get_latest_slice(ann_df, sel_companies)
         if not latest_sl.empty:
             st.dataframe(latest_sl.set_index('Company'), use_container_width=True)
+        else:
+            st.info("No CSV data available for the selected companies.")
     else:
         sec("Live Prices")
         try:
