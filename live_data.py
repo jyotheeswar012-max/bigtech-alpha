@@ -371,15 +371,40 @@ def get_all_annual(tickers: list = None) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. SMART MERGE
+# 7. SMART MERGE  —  live data wins on shared columns;
+#                    CSV fills in columns the live frame lacks (e.g. RD_B)
 # ─────────────────────────────────────────────────────────────────────────────
 def merge_with_csv(live_df: pd.DataFrame, csv_df: pd.DataFrame,
                    key_cols: list) -> pd.DataFrame:
+    """
+    Merge strategy:
+      1. Concat csv THEN live  (so live rows sort last → keep='last' keeps live).
+      2. For any column that exists only in csv_df (e.g. RD_B), backfill NaNs
+         in the live rows from the csv rows BEFORE deduplication.
+    """
     if live_df is None or (hasattr(live_df, "empty") and live_df.empty):
         return csv_df
     if csv_df is None or (hasattr(csv_df, "empty") and csv_df.empty):
         return live_df
-    combined = pd.concat([csv_df, live_df], ignore_index=True)
+
+    # Align columns — union of both frames
+    all_cols = list(dict.fromkeys(list(csv_df.columns) + list(live_df.columns)))
+    csv_aligned  = csv_df.reindex(columns=all_cols)
+    live_aligned = live_df.reindex(columns=all_cols)
+
+    # Concat: csv first so live rows are the "last" duplicate → kept by keep='last'
+    combined = pd.concat([csv_aligned, live_aligned], ignore_index=True)
+
+    # For each key group, forward-fill CSV-only columns into live rows
+    # (csv rows come first in the concat, live rows second)
+    csv_only_cols = [c for c in all_cols if c not in live_df.columns and c not in key_cols]
+    if csv_only_cols:
+        combined = combined.sort_values(key_cols).reset_index(drop=True)
+        combined[csv_only_cols] = (
+            combined.groupby(key_cols)[csv_only_cols]
+            .transform(lambda s: s.ffill().bfill())
+        )
+
     combined = combined.drop_duplicates(subset=key_cols, keep="last")
     return combined.sort_values(key_cols).reset_index(drop=True)
 
